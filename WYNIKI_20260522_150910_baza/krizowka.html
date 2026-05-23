@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Krzyżówka</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #222;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .grid-section {
+            display: flex;
+            justify-content: center;
+        }
+        
+        .grid {
+            display: inline-block;
+            border: 3px solid #000;
+            background: white;
+        }
+        
+        .grid-row {
+            display: flex;
+        }
+        
+        .cell {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            position: relative;
+            background-color: white;
+        }
+        
+        .cell.black {
+            background-color: #000;
+            border: 1px solid #666;
+        }
+        
+        .cell.empty {
+            background-color: #f9f6f0;
+        }
+        
+        .cell-clue {
+            position: absolute;
+            top: 2px;
+            left: 3px;
+            font-size: 9px;
+            font-weight: bold;
+            color: #c00;
+            line-height: 1;
+        }
+        
+        .clues-section {
+            flex: 1;
+        }
+        
+        .clues-section h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        
+        .clue {
+            margin-bottom: 8px;
+            line-height: 1.4;
+            font-size: 13px;
+        }
+        
+        .clue-num {
+            font-weight: bold;
+            color: #c00;
+            margin-right: 5px;
+        }
+        
+        @media (max-width: 1000px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #888;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Krzyżówka</h1>
+        
+        <div class="content">
+            <div class="grid-section">
+                <div class="grid">
+
+                    <div class="grid-row">
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">1</span>Z</div>
+                        <div class="cell">I</div>
+                        <div class="cell">E</div>
+                        <div class="cell">L</div>
+                        <div class="cell"><span class="cell-clue">2</span>E</div>
+                        <div class="cell">Ń</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">3</span>D</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">4</span>P</div>
+                        <div class="cell">S</div>
+                        <div class="cell">Y</div>
+                        <div class="cell">C</div>
+                        <div class="cell"><span class="cell-clue">5</span>H</div>
+                        <div class="cell">O</div>
+                        <div class="cell">L</div>
+                        <div class="cell">O</div>
+                        <div class="cell">G</div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">K</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">6</span>W</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">Y</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">7</span>F</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">E</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">8</span>Z</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">9</span>R</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">10</span>S</div>
+                        <div class="cell">I</div>
+                        <div class="cell">T</div>
+                        <div class="cell">O</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">11</span>G</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">P</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">12</span>I</div>
+                        <div class="cell">N</div>
+                        <div class="cell"><span class="cell-clue">13</span>T</div>
+                        <div class="cell">E</div>
+                        <div class="cell">G</div>
+                        <div class="cell">R</div>
+                        <div class="cell">A</div>
+                        <div class="cell">C</div>
+                        <div class="cell">J</div>
+                        <div class="cell">A</div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell"><span class="cell-clue">15</span>P</div>
+                        <div class="cell">A</div>
+                        <div class="cell">T</div>
+                        <div class="cell">E</div>
+                        <div class="cell">L</div>
+                        <div class="cell">N</div>
+                        <div class="cell">I</div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">P</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">16</span>D</div>
+                        <div class="cell">O</div>
+                        <div class="cell">B</div>
+                        <div class="cell">R</div>
+                        <div class="cell">O</div>
+                        <div class="cell black"></div>
+                        <div class="cell">L</div>
+                        <div class="cell black"></div>
+                        <div class="cell">R</div>
+                        <div class="cell black"></div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">B</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell">O</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">S</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">17</span>Z</div>
+                        <div class="cell">M</div>
+                        <div class="cell">I</div>
+                        <div class="cell">A</div>
+                        <div class="cell">N</div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">U</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">O</div>
+                        <div class="cell black"></div>
+                        <div class="cell">M</div>
+                        <div class="cell black"></div>
+                        <div class="cell">C</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">18</span>N</div>
+                        <div class="cell">A</div>
+                        <div class="cell">U</div>
+                        <div class="cell"><span class="cell-clue">19</span>K</div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell">M</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">P</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">E</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">20</span>P</div>
+                        <div class="cell">R</div>
+                        <div class="cell">E</div>
+                        <div class="cell">M</div>
+                        <div class="cell">I</div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell">Z</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">T</div>
+                        <div class="cell black"></div>
+                        <div class="cell">W</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell">O</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">Ó</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">M</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">21</span>S</div>
+                        <div class="cell">T</div>
+                        <div class="cell"><span class="cell-clue">22</span>A</div>
+                        <div class="cell">W</div>
+                        <div class="cell">K</div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">K</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell">I</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell">C</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">Ł</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">23</span>S</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">24</span>Ś</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">W</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">25</span>C</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">27</span>Z</div>
+                        <div class="cell">A</div>
+                        <div class="cell">P</div>
+                        <div class="cell">I</div>
+                        <div class="cell"><span class="cell-clue">28</span>S</div>
+                        <div class="cell">Y</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">E</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">R</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">29</span>N</div>
+                        <div class="cell">A</div>
+                        <div class="cell">R</div>
+                        <div class="cell">Z</div>
+                        <div class="cell">Ę</div>
+                        <div class="cell">D</div>
+                        <div class="cell">Z</div>
+                        <div class="cell">I</div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">U</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">T</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">R</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">30</span>R</div>
+                        <div class="cell black"></div>
+                        <div class="cell">U</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">N</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">Y</div>
+                        <div class="cell black"></div>
+                        <div class="cell">W</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">31</span>O</div>
+                        <div class="cell black"></div>
+                        <div class="cell">K</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">32</span>M</div>
+                        <div class="cell black"></div>
+                        <div class="cell">Y</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">34</span>L</div>
+                        <div class="cell">I</div>
+                        <div class="cell">Ś</div>
+                        <div class="cell">C</div>
+                        <div class="cell">I</div>
+                        <div class="cell">E</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">35</span>B</div>
+                        <div class="cell">L</div>
+                        <div class="cell">I</div>
+                        <div class="cell">S</div>
+                        <div class="cell"><span class="cell-clue">36</span>K</div>
+                        <div class="cell">O</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">S</div>
+                        <div class="cell black"></div>
+                        <div class="cell">Ó</div>
+                        <div class="cell black"></div>
+                        <div class="cell">B</div>
+                        <div class="cell black"></div>
+                        <div class="cell">C</div>
+                        <div class="cell black"></div>
+                        <div class="cell">I</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">I</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">E</div>
+                        <div class="cell black"></div>
+                        <div class="cell">M</div>
+                        <div class="cell black"></div>
+                        <div class="cell">K</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">T</div>
+                        <div class="cell black"></div>
+                        <div class="cell">D</div>
+                        <div class="cell black"></div>
+                        <div class="cell">I</div>
+                        <div class="cell black"></div>
+                        <div class="cell">E</div>
+                        <div class="cell black"></div>
+                        <div class="cell">O</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">D</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">37</span>Ł</div>
+                        <div class="cell">O</div>
+                        <div class="cell">P</div>
+                        <div class="cell">A</div>
+                        <div class="cell">T</div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell">W</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">38</span>M</div>
+                        <div class="cell">O</div>
+                        <div class="cell">P</div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">39</span>W</div>
+                        <div class="cell">A</div>
+                        <div class="cell">R</div>
+                        <div class="cell">S</div>
+                        <div class="cell">Z</div>
+                        <div class="cell">T</div>
+                        <div class="cell">A</div>
+                        <div class="cell">T</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">E</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">N</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">Ś</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">D</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">Ł</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                    <div class="grid-row">
+                        <div class="cell"><span class="cell-clue">40</span>K</div>
+                        <div class="cell">U</div>
+                        <div class="cell">R</div>
+                        <div class="cell">S</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">41</span>T</div>
+                        <div class="cell">E</div>
+                        <div class="cell">A</div>
+                        <div class="cell">M</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell">Ć</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                        <div class="cell"><span class="cell-clue">42</span>T</div>
+                        <div class="cell">R</div>
+                        <div class="cell">A</div>
+                        <div class="cell">W</div>
+                        <div class="cell">A</div>
+                        <div class="cell black"></div>
+                        <div class="cell black"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+
+                <div class="clues-section">
+                    <h2>Poziomo</h2>
+                    <div class="clue"><span class="clue-num">1.</span> Wszystkie rośliny wokół nas, o które dbamy</div>
+                    <div class="clue"><span class="clue-num">4.</span> Specjalista od wsparcia emocjonalnego w CIS</div>
+                    <div class="clue"><span class="clue-num">10.</span> Kuchenne narzędzie do przesiewania mąki na ciasto</div>
+                    <div class="clue"><span class="clue-num">12.</span> Główny cel CIS, łączenie ludzi ze społeczeństwem</div>
+                    <div class="clue"><span class="clue-num">15.</span> Służy do smażenia kotletów lub naleśników w kuchni</div>
+                    <div class="clue"><span class="clue-num">16.</span> Pozytywne działanie na rzecz drugiego człowieka</div>
+                    <div class="clue"><span class="clue-num">17.</span> Przełom w życiu, który zaczyna się w CIS</div>
+                    <div class="clue"><span class="clue-num">18.</span> Zdobywanie nowej wiedzy i umiejętności</div>
+                    <div class="clue"><span class="clue-num">20.</span> Dodatkowe pieniądze za dobrze wykonaną pracę</div>
+                    <div class="clue"><span class="clue-num">21.</span> Wynagrodzenie za godzinę pracy lub miesiąc</div>
+                    <div class="clue"><span class="clue-num">27.</span> Przyjmowanie chętnych do nowego projektu</div>
+                    <div class="clue"><span class="clue-num">29.</span> Przedmioty ułatwiające pracę, np. młotek lub łopata</div>
+                    <div class="clue"><span class="clue-num">34.</span> Spadają z drzew jesienią, trzeba je zgrabić</div>
+                    <div class="clue"><span class="clue-num">35.</span> Niedaleko, w relacji z drugim człowiekiem</div>
+                    <div class="clue"><span class="clue-num">37.</span> Narzędzie do kopania głębokich dołów w ziemi</div>
+                    <div class="clue"><span class="clue-num">38.</span> Narzędzie do mycia podłóg na mokro w budynku</div>
+                    <div class="clue"><span class="clue-num">39.</span> Miejsce praktycznej nauki zawodu w centrum</div>
+                    <div class="clue"><span class="clue-num">40.</span> Szkolenie podnoszące nasze kwalifikacje</div>
+                    <div class="clue"><span class="clue-num">41.</span> Angielskie określenie na zgraną grupę w pracy</div>
+                    <div class="clue"><span class="clue-num">42.</span> Zielony dywan w ogrodzie, który trzeba kosić</div>
+                </div>
+                <div class="clues-section">
+                    <h2>Pionowo</h2>
+                    <div class="clue"><span class="clue-num">2.</span> Pracownicy warsztatu wykonujący wspólne zadanie</div>
+                    <div class="clue"><span class="clue-num">3.</span> Dokument potwierdzający ukończenie CIS</div>
+                    <div class="clue"><span class="clue-num">5.</span> Ciepły napój, alternatywa dla kawy w przerwie</div>
+                    <div class="clue"><span class="clue-num">6.</span> Niezbędna do podlewania roślin i do mycia podłóg</div>
+                    <div class="clue"><span class="clue-num">7.</span> Miejsce, w którym można znaleźć zatrudnienie</div>
+                    <div class="clue"><span class="clue-num">8.</span> Wszyscy pracownicy i uczestnicy działający razem</div>
+                    <div class="clue"><span class="clue-num">9.</span> Przeciwieństwo słowa osobno, podstawa integracji</div>
+                    <div class="clue"><span class="clue-num">11.</span> Ludzie, z którymi dzielimy dni na warsztacie</div>
+                    <div class="clue"><span class="clue-num">13.</span> Służą do przewożenia ziemi lub kamieni w ogrodzie</div>
+                    <div class="clue"><span class="clue-num">15.</span> Wsparcie dawane komuś w trudnej sytuacji</div>
+                    <div class="clue"><span class="clue-num">19.</span> Kolorowe rośliny sadzone na rabatach przez ogrodników</div>
+                    <div class="clue"><span class="clue-num">22.</span> Przejście na wyższe stanowisko w pracy</div>
+                    <div class="clue"><span class="clue-num">23.</span> Symbol dobroci i wkładania wysiłku w pomoc</div>
+                    <div class="clue"><span class="clue-num">24.</span> Mały metalowy element do skręcania mebli</div>
+                    <div class="clue"><span class="clue-num">25.</span> Efekt pracy warsztatu porządkowego</div>
+                    <div class="clue"><span class="clue-num">27.</span> Wyuczona profesja, np. kucharz lub ogrodnik</div>
+                    <div class="clue"><span class="clue-num">28.</span> Podjęcie pracy po zakończeniu uczestnictwa</div>
+                    <div class="clue"><span class="clue-num">30.</span> Odnawianie i naprawianie pomieszczeń w CIS</div>
+                    <div class="clue"><span class="clue-num">31.</span> Ciepły posiłek jedzony w trakcie dnia w CIS</div>
+                    <div class="clue"><span class="clue-num">32.</span> Służy do zamiatania chodników i placu wokół CIS</div>
+                    <div class="clue"><span class="clue-num">34.</span> Osoba, która przewodzi grupie w zadaniu</div>
+                    <div class="clue"><span class="clue-num">36.</span> Gorący napój pity o poranku przed pracą</div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            Krzyżówka wygenerowana automatycznie
+        </footer>
+    </div>
+</body>
+</html>
