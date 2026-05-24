@@ -43,6 +43,15 @@ class CrosswordOrchestrator:
         self._api_cache_loaded: bool = False
         self._api_cache_path: str = os.path.join(self.base_dir, "api_cache.json")
         self._api_dry_run: bool = False
+        self._api_log_path: Optional[str] = None  # Ścieżka do logu API
+
+        # Kolory i czcionka dla renderera
+        self.renderer_color_empty: Optional[tuple] = None
+        self.renderer_color_tile: Optional[tuple] = None
+        self.renderer_color_black: Optional[tuple] = None
+        self.renderer_color_text: Optional[tuple] = None
+        self.renderer_color_clue_num: Optional[tuple] = None
+        self.renderer_font_name: str = "Arial"
 
     def setup_word_source(self, word_file: Optional[str] = None) -> bool:
         """
@@ -56,10 +65,13 @@ class CrosswordOrchestrator:
         """
         try:
             if word_file is None:
-                # Spróbuj dane.txt w katalogu projektu
-                parent_dir = os.path.dirname(os.path.abspath(__file__))
-                parent_dir = os.path.dirname(parent_dir)  # Wyjdź z Krzyzowka
-                word_file = os.path.join(parent_dir, "dane.txt")
+                # Spróbuj bazę w katalogu baza_wyrazow, a potem dane.txt
+                project_dir = os.path.dirname(os.path.abspath(__file__))
+                candidate = os.path.join(project_dir, "baza_wyrazow", "baza.txt")
+                if os.path.exists(candidate):
+                    word_file = candidate
+                else:
+                    word_file = os.path.join(project_dir, "dane.txt")
 
             self.word_source = WordSource(word_file)
 
@@ -76,9 +88,7 @@ class CrosswordOrchestrator:
     def setup_bin_source(self, bin_file: Optional[str] = None) -> bool:
         """Załaduj binarną bazę słów slowa.bin do silnika wypełniania."""
         if bin_file is None:
-            bin_file = os.path.join(
-                self.base_dir, "Konwersja", "konwersja", "slowa.bin"
-            )
+            bin_file = os.path.join(self.base_dir, "baza_wyrazow", "slowa.bin")
 
         if not os.path.exists(bin_file):
             print(f"[Orchestrator] Uwaga: Brak pliku binarny słownika: {bin_file}")
@@ -99,14 +109,15 @@ class CrosswordOrchestrator:
 
     def create_output_directory(self, source_filename: str) -> bool:
         """
-        Utwórz katalog wyjściowy w formacie WYNIKI_data_godzina_nazwa.
-        
+        Utwórz katalog wyjściowy w formacie backup/WYNIKI_data_godzina_nazwa.
+
         Args:
             source_filename: Nazwa pliku źródłowego (bez rozszerzenia)
-        
+
         Returns:
             True jeśli OK
         """
+
         try:
             now = datetime.datetime.now()
             date_time = now.strftime("%Y%m%d_%H%M%S")
@@ -115,7 +126,9 @@ class CrosswordOrchestrator:
             clean_name = Path(source_filename).stem  # Bez rozszerzenia
 
             output_name = f"WYNIKI_{date_time}_{clean_name}"
-            self.output_dir = os.path.join(self.base_dir, output_name)
+            backup_dir = os.path.join(self.base_dir, "backup")
+            os.makedirs(backup_dir, exist_ok=True)
+            self.output_dir = os.path.join(backup_dir, output_name)
 
             os.makedirs(self.output_dir, exist_ok=True)
             print(f"[Orchestrator] Katalog wyjściowy: {self.output_dir}")
@@ -139,6 +152,8 @@ class CrosswordOrchestrator:
         time_limit: float = 3.0,
         max_attempts: int = 5,
         target_valid_variants: Optional[int] = None,
+        use_extra: bool = False,
+        min_word_length: int = 2,
     ) -> bool:
         """
         Wygeneruj krzyżówkę(i) i wyeksportuj do wszystkich formatów.
@@ -174,7 +189,7 @@ class CrosswordOrchestrator:
         # Krok 3: Wygeneruj warianty
         if multi_strategy:
             return self._generate_multi_strategy(
-                width, height, num_variants, progress_callback
+                width, height, num_variants, progress_callback, use_extra=use_extra
             )
         else:
             # jeśli nie podano target_valid_variants, użyj num_variants
@@ -188,6 +203,8 @@ class CrosswordOrchestrator:
                 time_limit=time_limit,
                 max_attempts=max_attempts,
                 target_valid_variants=target_valid_variants,
+                use_extra=use_extra,
+                min_word_length=min_word_length,
             )
 
     def _generate_single_strategy(
@@ -195,7 +212,12 @@ class CrosswordOrchestrator:
         width: int,
         height: int,
         num_variants: int,
-        progress_callback: Optional[Callable] = None
+        progress_callback: Optional[Callable] = None,
+        time_limit: float = 3.0,
+        max_attempts: int = 5,
+        target_valid_variants: Optional[int] = None,
+        use_extra: bool = False,
+        min_word_length: int = 2,
     ) -> bool:
         """Nowy generator - prawidłowa krzyżówka z genxword-like algorytmem."""
         msg = f"[Orchestrator] Generuję {num_variants} wariantów krzyżówki ({width}x{height})..."
@@ -205,6 +227,11 @@ class CrosswordOrchestrator:
 
         # Nowy, prawidłowy generator
         generator = CrosswordGeneratorNew(self.word_source)
+        generator.min_word_length = max(2, min_word_length)
+
+        if use_extra:
+            max_attempts = max(max_attempts, 15)
+            time_limit = max(time_limit, 8.0)
 
         variants = []
         for i in range(num_variants):
@@ -214,24 +241,37 @@ class CrosswordOrchestrator:
                 progress_callback(msg)
 
             # Spróbuj wygenerować siatkę zgodną z zasadami Scrabble
-            max_attempts = 5
+            max_attempts_var = max_attempts if use_extra else 5
             grid = None
-            for attempt in range(1, max_attempts + 1):
-                grid = generator.generate(width, height, time_limit=3.0)
+            for attempt in range(1, max_attempts_var + 1):
+                grid = generator.generate(width, height, time_limit=time_limit)
                 # Najpierw szybka walidacja
                 valid, invalid_words = self._is_grid_scrabble_valid(grid)
                 if valid:
-                    break
+                    # Dodatkowe sprawdzenia dla EXTRA mode
+                    if use_extra:
+                        if self._has_good_intersections(
+                            grid
+                        ) and not self._has_duplicate_words(grid):
+                            break
+                    else:
+                        break
 
                 # Jeśli mamy binarny silnik, spróbuj uzupełnić
                 if self.bin_source and self.bin_source.loaded:
                     grid = self._fill_grid_with_engine(grid)
                     valid, invalid_words = self._is_grid_scrabble_valid(grid)
                     if valid:
-                        break
+                        if use_extra:
+                            if self._has_good_intersections(
+                                grid
+                            ) and not self._has_duplicate_words(grid):
+                                break
+                        else:
+                            break
 
                 print(
-                    f"    Próba {attempt}/{max_attempts} - niezgodna z regułami Scrabble. Nieprawidłowe wyrazy: {invalid_words}"
+                    f"    Próba {attempt}/{max_attempts_var} - niezgodna z regułami Scrabble. Nieprawidłowe wyrazy: {invalid_words}"
                 )
 
             if not grid:
@@ -268,7 +308,8 @@ class CrosswordOrchestrator:
         width: int,
         height: int,
         num_variants: int,
-        progress_callback: Optional[Callable] = None
+        progress_callback: Optional[Callable] = None,
+        use_extra: bool = False,
     ) -> bool:
         """Nowe podejście - lata multi-strategy (6 strategii)."""
         msg = f"[Orchestrator] Generuję krzyżówki z {num_variants} strategiami ({width}x{height})..."
@@ -288,7 +329,10 @@ class CrosswordOrchestrator:
 
         # Wygeneruj wszystkie strategie - NIE sortuj aby zobaczyć różne podejścia
         results = multi_gen.generate_all_strategies(
-            width, height, progress_callback=strategy_progress, sort_by_density=False
+            width,
+            height,
+            progress_callback=strategy_progress,
+            sort_by_density=use_extra,
         )
 
         # Wyświetl statystyki
@@ -354,7 +398,15 @@ class CrosswordOrchestrator:
               f"Puste: {empty_percent:.1f}% | Litery: {letter_count}")
 
         # PNG uzupełniona
-        renderer = CrosswordImageRenderer(cell_size=40)
+        renderer = CrosswordImageRenderer(
+            cell_size=40,
+            font_name=self.renderer_font_name,
+            color_empty=self.renderer_color_empty,
+            color_tile=self.renderer_color_tile,
+            color_black=self.renderer_color_black,
+            color_text=self.renderer_color_text,
+            color_clue_num=self.renderer_color_clue_num,
+        )
         img_filled = renderer.render(grid, filled=True)
         png_filled_name = f"{variant_prefix}{empty_marker}{letter_marker}_completed.png"
         png_filled_path = os.path.join(self.output_dir, png_filled_name)
@@ -387,13 +439,23 @@ class CrosswordOrchestrator:
             html_path = os.path.join(self.output_dir, html_name)
             HTMLExporter.export(grid, html_path)
 
+    def _needs_api_clue(self, clue: str, word: str) -> bool:
+        """Sprawdź czy pytanie powinno pochodzić z API DeepSeek."""
+        if not clue or clue.strip() == "":
+            return True
+        if clue.strip().upper() == word.strip().upper():
+            return True
+        if clue.strip().startswith("(") and "liter" in clue.lower():
+            return True
+        return False
+
     def _save_clues_txt(
         self,
         grid: CrosswordGrid,
         filepath: str,
         highlight_words: Optional[Set[str]] = None,
     ) -> None:
-        """Zapisz pytania do pliku TXT (bez duplikatów)."""
+        """Zapisz pytania do pliku TXT (bez duplikatów) + lista słów alfabetycznie."""
         try:
             h_clues, v_clues = grid.get_clues_list()
 
@@ -416,20 +478,25 @@ class CrosswordOrchestrator:
             lines.append("-" * 60)
 
             highlight = highlight_words or set()
+            used_words = set()
+
             for num in sorted(h_clues_unique.keys()):
                 clue, word = h_clues_unique[num]
-                # Jeśli brak podpowiedzi i włączono API, spróbuj wygenerować
-                if (
-                    not clue
-                    or clue.strip() == ""
-                    or clue.strip().upper() == word.upper()
-                ) and getattr(self, "use_api_enabled", False):
-                    try:
-                        generated = self._generate_clue_via_api(word)
-                        if generated:
-                            clue = generated
-                    except Exception:
-                        pass
+                used_words.add(word.upper())
+
+                if self._needs_api_clue(clue, word):
+                    if getattr(self, "use_api_enabled", False):
+                        try:
+                            generated = self._generate_clue_via_api(word)
+                            if generated:
+                                clue = generated
+                        except Exception:
+                            pass
+
+                if self._needs_api_clue(clue, word):
+                    # Jeśli nic nie wygenerowano, pokaż sam wyraz
+                    clue = word
+
                 if word.upper() in highlight:
                     clue = f"*{clue}*"
                 lines.append(f"{num:2d}. {clue} ({len(word)} liter)")
@@ -438,23 +505,39 @@ class CrosswordOrchestrator:
             lines.append("PIONOWO:")
             lines.append("-" * 60)
 
-            for num in sorted(v_clues_unique.keys()):
-                clue, word = v_clues_unique[num]
-                # Jeśli brak podpowiedzi i włączono API, spróbuj wygenerować
-                if (
-                    not clue
-                    or clue.strip() == ""
-                    or clue.strip().upper() == word.upper()
-                ) and getattr(self, "use_api_enabled", False):
-                    try:
-                        generated = self._generate_clue_via_api(word)
-                        if generated:
-                            clue = generated
-                    except Exception:
-                        pass
-                if word.upper() in highlight:
-                    clue = f"*{clue}*"
-                lines.append(f"{num:2d}. {clue} ({len(word)} liter)")
+            if v_clues_unique:
+                for num in sorted(v_clues_unique.keys()):
+                    clue, word = v_clues_unique[num]
+                    used_words.add(word.upper())
+
+                    if self._needs_api_clue(clue, word):
+                        if getattr(self, "use_api_enabled", False):
+                            try:
+                                generated = self._generate_clue_via_api(word)
+                                if generated:
+                                    clue = generated
+                            except Exception:
+                                pass
+
+                    if self._needs_api_clue(clue, word):
+                        # Jeśli nic nie wygenerowano, pokaż sam wyraz
+                        clue = word
+
+                    if word.upper() in highlight:
+                        clue = f"*{clue}*"
+                    lines.append(f"{num:2d}. {clue} ({len(word)} liter)")
+            else:
+                lines.append("(brak)")
+
+            # Dodaj listę wyrażów alfabetycznie
+            lines.append("")
+            lines.append("=" * 60)
+            lines.append("WYRAZY UŻYTE W KRZYŻÓWCE (alfabetycznie):")
+            lines.append("=" * 60)
+
+            sorted_words = sorted(used_words)
+            for word in sorted_words:
+                lines.append(f"  • {word}")
 
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
@@ -483,7 +566,15 @@ class CrosswordOrchestrator:
 
         # PNG krzyżówki - wersja uzupełniona (z literami)
         print(f"  Exportuję wariant {variant_num}: PNG (uzupełniona)...")
-        renderer = CrosswordImageRenderer(cell_size=40)
+        renderer = CrosswordImageRenderer(
+            cell_size=40,
+            font_name=self.renderer_font_name,
+            color_empty=self.renderer_color_empty,
+            color_tile=self.renderer_color_tile,
+            color_black=self.renderer_color_black,
+            color_text=self.renderer_color_text,
+            color_clue_num=self.renderer_color_clue_num,
+        )
         img_filled = renderer.render(grid, filled=True)
         png_filled_path = os.path.join(self.output_dir, f"{variant_prefix}_completed.png")
         img_filled.save(png_filled_path, "PNG")
@@ -775,82 +866,12 @@ class CrosswordOrchestrator:
             return
 
         source_words = [w.upper() for w in self.word_source.get_all_words()]
-        unused = [w for w in source_words if w.upper() not in used_words]
+        unused = [w for w in source_words if w not in used_words]
         path = os.path.join(self.output_dir, "niewykorzystane_słowa.txt")
         with open(path, "w", encoding="utf-8") as f:
             for word in unused:
                 f.write(word + "\n")
-
-    def _generate_single_strategy(
-        self,
-        width: int,
-        height: int,
-        num_variants: int,
-        progress_callback: Optional[Callable] = None,
-        time_limit: float = 3.0,
-        max_attempts: int = 5,
-        target_valid_variants: int = 3,
-    ) -> bool:
-        """Nowy generator - próbuje wygenerować `target_valid_variants` poprawnych wariantów.
-
-        Parametry:
-          - `time_limit` - limit czasu (sekundy) dla pojedynczego wywołania generatora
-          - `max_attempts` - maksymalna liczba prób na jeden wariant
-          - `target_valid_variants` - ile poprawnych wariantów chcemy uzyskać
-        """
-        msg = f"[Orchestrator] Generuję do {target_valid_variants} poprawnych wariantów krzyżówki ({width}x{height})..."
-        print(msg)
-        if progress_callback:
-            progress_callback(msg)
-
-        generator = CrosswordGeneratorNew(self.word_source)
-
-        variants: List[CrosswordGrid] = []
-        attempts = 0
-        max_total_attempts = num_variants * max_attempts
-
-        while len(variants) < target_valid_variants and attempts < max_total_attempts:
-            attempts += 1
-            idx = len(variants) + 1
-            print(
-                f"  Próba generowania [{attempts}/{max_total_attempts}] (zbieram wariant {idx})..."
-            )
-
-            grid = generator.generate(width, height, time_limit=time_limit)
-
-            valid, invalid_words = self._is_grid_scrabble_valid(grid)
-            if not valid and self.bin_source and self.bin_source.loaded:
-                # spróbuj uzupełnić silnikiem
-                grid = self._fill_grid_with_engine(grid)
-                valid, invalid_words = self._is_grid_scrabble_valid(grid)
-
-            if valid:
-                variants.append(grid)
-                print(
-                    f"    Uzyskano poprawny wariant ({len(variants)}/{target_valid_variants})"
-                )
-            else:
-                print(f"    Nieprawidłowy wariant: {invalid_words}")
-
-        if not variants:
-            print(
-                "[Orchestrator] Nie udało się wygenerować żadnego poprawnego wariantu."
-            )
-            return False
-
-        print(
-            f"[Orchestrator] Zebrano {len(variants)} poprawnych wariantów, eksportuję..."
-        )
-
-        used_words: Set[str] = set()
-        for i, grid in enumerate(variants, 1):
-            self._export_variant(grid, i, width, height)
-            self._export_engine_variant(grid, i, width, height)
-            used_words.update(w.upper() for w, _, _, _, _ in grid.placed_words)
-
-        self._save_unused_words(used_words)
-        print(f"[Orchestrator] Gotowe! Wyniki w: {self.output_dir}")
-        return True
+        print(f"[Orchestrator] Niewykorzystane słowa ({len(unused)}): {path}")
 
     def _generate_clue_via_api(self, word: str) -> str:
         """Spróbuj wygenerować krótką definicję/podpowiedź dla `word` korzystając z zewnętrznego API.
@@ -949,3 +970,67 @@ class CrosswordOrchestrator:
         except Exception as e:
             print(f"[Orchestrator] Błąd API generowania podpowiedzi: {e}")
             return ""
+
+    def _has_good_intersections(self, grid: CrosswordGrid) -> bool:
+        """Sprawdź, czy wyrazy dobrze się przecinają (nie są tylko obok siebie).
+
+        Wymagamy aby większość wyrazów przecinała się z innymi wyrazami,
+        a nie tylko były umieszczone obok siebie.
+        """
+        if not hasattr(grid, "placed_words") or not grid.placed_words:
+            return True  # Brak infirmacji, zaakceptuj
+
+        # Dla każdego umieszczonego wyrazu, sprawdzenie czy ma mniej niż jedno przecięcie
+        intersecting_count = 0
+        for word, row, col, direction, _ in grid.placed_words:
+            has_intersection = False
+            if direction == Direction.HORIZONTAL:
+                # Sprawdz pionowe przecięcia
+                for c in range(col, col + len(word)):
+                    if row > 0 and grid.grid[row - 1][c] not in (None, ""):
+                        has_intersection = True
+                        break
+                    if row < grid.height - 1 and grid.grid[row + 1][c] not in (
+                        None,
+                        "",
+                    ):
+                        has_intersection = True
+                        break
+            else:  # VERTICAL
+                # Sprawdz poziome przecięcia
+                for r in range(row, row + len(word)):
+                    if col > 0 and grid.grid[r][col - 1] not in (None, ""):
+                        has_intersection = True
+                        break
+                    if col < grid.width - 1 and grid.grid[r][col + 1] not in (None, ""):
+                        has_intersection = True
+                        break
+
+            if has_intersection:
+                intersecting_count += 1
+
+        # Co najmniej 70% wyrazów powinno się przecinać
+        total_words = len(grid.placed_words)
+        if total_words > 0:
+            intersection_ratio = intersecting_count / total_words
+            return intersection_ratio >= 0.7
+
+        return True
+
+    def _has_duplicate_words(self, grid: CrosswordGrid) -> bool:
+        """Sprawdzenie czy są duplikaty wyrazów na siatce.
+
+        Zwraca True jeśli są duplikaty (złe), False jeśli OK.
+        """
+        if not hasattr(grid, "placed_words") or not grid.placed_words:
+            return False  # Brak infirmacji, zaakceptuj
+
+        words_used = []
+        for word, _, _, _, _ in grid.placed_words:
+            words_used.append(word.upper())
+
+        # Jeśli liczba unikalnych słów jest mniejsza niż całkowita - są duplikaty
+        unique_words = set(words_used)
+        has_dupes = len(unique_words) < len(words_used)
+
+        return has_dupes

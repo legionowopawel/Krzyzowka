@@ -154,17 +154,12 @@ class CrosswordGrid:
         if not self.can_place_word(word, row, col, direction):
             return False
 
-        # Przypisz numer pytania TYLKO jeśli to rzeczywisty start słowa
-        # (nie wcześniej wypełnione litery z innego słowa)
-        clue_num = None
-        if (row, col) not in self.clue_numbers:
-            # Sprawdź czy ta pozycja jest już wypełniona (z poprzedniego słowa)
-            if not self.grid[row][col]:
-                clue_num = self.next_clue_number
-                self.clue_numbers[(row, col)] = clue_num
-                self.next_clue_number += 1
-        else:
-            clue_num = self.clue_numbers[(row, col)]
+        # Przypisz numer pytania jeśli pole nie ma jeszcze numeru
+        clue_num = self.clue_numbers.get((row, col))
+        if clue_num is None:
+            clue_num = self.next_clue_number
+            self.clue_numbers[(row, col)] = clue_num
+            self.next_clue_number += 1
 
         # Umieść litery
         if direction == Direction.HORIZONTAL:
@@ -254,14 +249,17 @@ class CrosswordGrid:
                             except Exception:
                                 definition = None
                         if definition is None:
-                            definition = f"({len(horiz_word)} liter)"
+                            # Fallback: jeśli brak definicji, pokaż sam wyraz zamiast "(X liter)"
+                            definition = horiz_word
 
-                        clue_num = self.next_clue_number
-                        self.clue_numbers[(row, col)] = clue_num
+                        clue_num = self.clue_numbers.get((row, col))
+                        if clue_num is None:
+                            clue_num = self.next_clue_number
+                            self.clue_numbers[(row, col)] = clue_num
+                            self.next_clue_number += 1
                         self.placed_words.append(
                             (horiz_word, row, col, Direction.HORIZONTAL, definition)
                         )
-                        self.next_clue_number += 1
 
                 # Pionowo
                 if (row == 0 or self.grid[row - 1][col] is None) and (
@@ -281,14 +279,17 @@ class CrosswordGrid:
                             except Exception:
                                 definition = None
                         if definition is None:
-                            definition = f"({len(vert_word)} liter)"
+                            # Fallback: jeśli brak definicji, pokaż sam wyraz zamiast "(X liter)"
+                            definition = vert_word
 
-                        clue_num = self.next_clue_number
-                        self.clue_numbers[(row, col)] = clue_num
+                        clue_num = self.clue_numbers.get((row, col))
+                        if clue_num is None:
+                            clue_num = self.next_clue_number
+                            self.clue_numbers[(row, col)] = clue_num
+                            self.next_clue_number += 1
                         self.placed_words.append(
                             (vert_word, row, col, Direction.VERTICAL, definition)
                         )
-                        self.next_clue_number += 1
 
     def get_density(self) -> float:
         """Procent wypełnionej powierzchni."""
@@ -310,23 +311,29 @@ class CrosswordGrid:
     def get_clues_list(self) -> Tuple[List[Tuple[int, str]], List[Tuple[int, str]]]:
         """
         Zwróć listy pytań dla pozomych i pionowych słów.
-        
+
         Returns:
             (clues_horizontal, clues_vertical)
-            gdzie każde to lista (numer_pytania, tekst_pytania)
+            gdzie każde to lista (numer_pytania, tekst_pytania, word)
         """
-        h_clues = []
-        v_clues = []
+        h_clues_dict = {}  # {clue_num: (clue, word)}
+        v_clues_dict = {}  # {clue_num: (clue, word)}
 
         for word, row, col, direction, clue in self.placed_words:
             clue_num = self.clue_numbers.get((row, col))
             if clue_num:
                 if direction == Direction.HORIZONTAL:
-                    h_clues.append((clue_num, clue, word))
+                    # Jeśli tego numeru jeszcze nie ma, dodaj (unika duplikatów)
+                    if clue_num not in h_clues_dict:
+                        h_clues_dict[clue_num] = (clue, word)
                 else:
-                    v_clues.append((clue_num, clue, word))
+                    if clue_num not in v_clues_dict:
+                        v_clues_dict[clue_num] = (clue, word)
 
-        # Sortuj po numerze pytania
+        # Konwertuj do listy i sortuj po numerze
+        h_clues = [(num, clue, word) for num, (clue, word) in h_clues_dict.items()]
+        v_clues = [(num, clue, word) for num, (clue, word) in v_clues_dict.items()]
+
         h_clues.sort(key=lambda x: x[0])
         v_clues.sort(key=lambda x: x[0])
 

@@ -32,6 +32,7 @@ class CrosswordGeneratorNew:
         self.grid = None
         self.height = 0
         self.width = 0
+        self.min_word_length = 2
 
     def generate(self, width: int, height: int, time_limit: float = 3.0) -> CrosswordGrid:
         """
@@ -86,7 +87,7 @@ class CrosswordGeneratorNew:
         all_words = []
 
         # Zbierz wszystkie dostępne słowa
-        for length in range(2, 15):
+        for length in range(self.min_word_length, 15):
             words = self.word_source.get_words_by_length(length)
             all_words.extend(words)
 
@@ -302,7 +303,7 @@ class CrosswordGeneratorNew:
         """
         from crossword_grid import Direction
 
-        clue_num = 1
+        next_clue_num = 1
         placed_words = []
         clue_numbers = {}
 
@@ -311,54 +312,54 @@ class CrosswordGeneratorNew:
             for col in range(grid.width):
                 cell = grid.grid[row][col]
 
-                # Pomiń czarne pola
-                if cell is None or cell == self.empty:
+                # Pomiń czarne/puste pola
+                if cell is None or cell == self.empty or cell == "":
                     continue
 
                 # Czy to początek wyrazu POZIOMEGO?
-                if (col == 0 or grid.grid[row][col - 1] is None) and \
-                   (col < grid.width - 1 and grid.grid[row][col + 1] is not None):
+                # Poprzednia komórka: None lub "" | Następna: nie None i nie ""
+                if (col == 0 or grid.grid[row][col - 1] is None or grid.grid[row][col - 1] == self.empty or grid.grid[row][col - 1] == "") and \
+                   (col < grid.width - 1 and grid.grid[row][col + 1] is not None and grid.grid[row][col + 1] != self.empty and grid.grid[row][col + 1] != ""):
                     # Zbierz wyraz poziomo
                     horiz_word = ""
                     start_col = col
                     c = col
-                    while c < grid.width and grid.grid[row][c] is not None:
+                    # Czytaj dopóki nie napotkamy None lub ""
+                    while c < grid.width and grid.grid[row][c] is not None and grid.grid[row][c] != self.empty and grid.grid[row][c] != "":
                         horiz_word += grid.grid[row][c]
                         c += 1
 
                     # Zapisz
                     if len(horiz_word) > 1:
-                        # Pobierz definicję z word_source
                         definition = self.word_source.get_word(horiz_word)
                         if definition is None:
-                            definition = f"({len(horiz_word)} liter)"
+                            definition = horiz_word  # Pokaż wyraz zamiast "(X liter)"
 
-                        clue_numbers[(row, col)] = clue_num
-                        placed_words.append((horiz_word, row, col, Direction.HORIZONTAL, definition))
-                        clue_num += 1
+                        if (row, col) not in clue_numbers:
+                            clue_num = next_clue_num
+                            clue_numbers[(row, col)] = clue_num
+                            next_clue_num += 1
+                        else:
+                            clue_num = clue_numbers[(row, col)]
+                        placed_words.append(
+                            (horiz_word, row, col, Direction.HORIZONTAL, definition)
+                        )
 
                 # Czy to początek wyrazu PIONOWEGO?
-                if (row == 0 or grid.grid[row - 1][col] is None) and \
-                   (row < grid.height - 1 and grid.grid[row + 1][col] is not None):
+                # Poprzednia komórka (wyżej): None lub "" | Następna (poniżej): nie None i nie ""
+                if (row == 0 or grid.grid[row - 1][col] is None or grid.grid[row - 1][col] == self.empty or grid.grid[row - 1][col] == "") and \
+                   (row < grid.height - 1 and grid.grid[row + 1][col] is not None and grid.grid[row + 1][col] != self.empty and grid.grid[row + 1][col] != ""):
                     # Zbierz wyraz pionowo
                     vert_word = ""
                     start_row = row
                     r = row
-                    while r < grid.height and grid.grid[r][col] is not None:
+                    # Czytaj dopóki nie napotkamy None lub ""
+                    while r < grid.height and grid.grid[r][col] is not None and grid.grid[r][col] != self.empty and grid.grid[r][col] != "":
                         vert_word += grid.grid[r][col]
                         r += 1
 
                     # Zapisz
                     if len(vert_word) > 1:
-                        # Pobierz definicję z word_source
                         definition = self.word_source.get_word(vert_word)
                         if definition is None:
-                            definition = f"({len(vert_word)} liter)"
-
-                        clue_numbers[(row, col)] = clue_num
-                        placed_words.append((vert_word, row, col, Direction.VERTICAL, definition))
-                        clue_num += 1
-
-        # Populuj grid
-        grid.placed_words = placed_words
-        grid.clue_numbers = clue_numbers
+                            definition = vert_word  # Pokaż wyraz zamiast "(X liter)"

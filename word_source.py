@@ -24,8 +24,12 @@ class WordSource:
         if filepath is None:
             # Domyślna baza w katalogu projektu
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            parent_dir = os.path.dirname(script_dir)
-            filepath = os.path.join(parent_dir, "dane.txt")
+            candidate = os.path.join(script_dir, "baza_wyrazow", "baza.txt")
+            if os.path.exists(candidate):
+                filepath = candidate
+            else:
+                parent_dir = os.path.dirname(script_dir)
+                filepath = os.path.join(parent_dir, "dane.txt")
 
         self.filepath = filepath
         self.words: Dict[str, str] = {}  # {word: definition}

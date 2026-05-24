@@ -10,7 +10,7 @@ from crossword_grid import CrosswordGrid
 
 class HTMLExporter:
     """Eksportuje krzyżówkę do HTML5."""
-    
+
     @staticmethod
     def export(grid: CrosswordGrid, filepath: str) -> bool:
         """
@@ -25,7 +25,7 @@ class HTMLExporter:
         """
         try:
             html_parts = []
-            
+
             # Header
             html_parts.append("""<!DOCTYPE html>
 <html lang="pl">
@@ -163,57 +163,75 @@ class HTMLExporter:
             <div class="grid-section">
                 <div class="grid">
 """)
-            
+
             # Rysuj siatkę
             for r in range(grid.height):
                 html_parts.append('                    <div class="grid-row">')
                 for c in range(grid.width):
                     cell = grid.grid[r][c]
                     clue_num = grid.get_clue_number(r, c)
-                    
+
                     if cell is None:
                         html_parts.append('                        <div class="cell black"></div>')
                     else:
                         cell_class = "cell"
                         if cell == "":
                             cell_class += " empty"
-                        
+
                         letter = cell if cell != "" else ""
                         clue_marker = ""
-                        
+
                         if clue_num is not None:
                             clue_marker = f'<span class="cell-clue">{clue_num}</span>'
-                        
+
                         html_parts.append(f'                        <div class="{cell_class}">{clue_marker}{letter}</div>')
-                
+
                 html_parts.append('                    </div>')
-            
+
             html_parts.append("""                </div>
             </div>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
 """)
-            
+
             # Pytania poziome
             html_parts.append('                <div class="clues-section">')
             html_parts.append('                    <h2>Poziomo</h2>')
-            
+
             h_clues, v_clues = grid.get_clues_list()
-            
+
             for num, clue, word in h_clues:
                 html_parts.append(f'                    <div class="clue"><span class="clue-num">{num}.</span> {clue}</div>')
-            
+
             html_parts.append('                </div>')
-            
+
             # Pytania pionowe
             html_parts.append('                <div class="clues-section">')
             html_parts.append('                    <h2>Pionowo</h2>')
-            
+
             for num, clue, word in v_clues:
                 html_parts.append(f'                    <div class="clue"><span class="clue-num">{num}.</span> {clue}</div>')
-            
+
             html_parts.append('                </div>')
-            
+
+            html_parts.append("""            </div>
+        </div>
+        
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #ddd;">
+            <h2>Wyrazy użyte w krzyżówce (alfabetycznie)</h2>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 15px;">
+""")
+
+            # Zbierz i posortuj wyrazy
+            all_words = set()
+            for word, _, _, _, _ in grid.placed_words:
+                all_words.add(word.upper())
+
+            for word in sorted(all_words):
+                html_parts.append(
+                    f'                <div style="padding: 8px; background-color: #f0f0f0; border-radius: 4px;">{word}</div>'
+                )
+
             html_parts.append("""            </div>
         </div>
         
@@ -224,14 +242,14 @@ class HTMLExporter:
 </body>
 </html>
 """)
-            
+
             # Zapisz
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(html_parts))
-            
+
             print(f"[HTMLExporter] Zapisano: {filepath}")
             return True
-            
+
         except Exception as e:
             print(f"[HTMLExporter] BŁĄD: {e}")
             return False
