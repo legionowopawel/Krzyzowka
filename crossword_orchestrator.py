@@ -11,10 +11,13 @@ Obsługuje:
 
 import os
 import datetime
-from typing import Optional, List, Callable
+from typing import Optional, List, Callable, Set, Dict, Any
+import requests
+import json
+import time
 from pathlib import Path
-from word_source import WordSource
-from crossword_grid import CrosswordGrid
+from word_source import WordSource, BinaryWordSource
+from crossword_grid import CrosswordGrid, Direction
 from crossword_generator import CrosswordGenerator
 from crossword_new import CrosswordGeneratorNew
 from crossword_strategies import MultiStrategyGenerator, StrategyResult
@@ -25,7 +28,7 @@ from html_exporter import HTMLExporter
 
 class CrosswordOrchestrator:
     """Zarządza całym procesem generowania i eksportu krzyżówek."""
-    
+
     def __init__(self, base_dir: str = "."):
         """
         Args:
@@ -33,8 +36,14 @@ class CrosswordOrchestrator:
         """
         self.base_dir = base_dir
         self.word_source: Optional[WordSource] = None
+        self.bin_source: Optional[BinaryWordSource] = None
         self.output_dir: Optional[str] = None
-    
+        self.use_api_enabled: bool = False
+        self._api_cache: Dict[str, str] = {}
+        self._api_cache_loaded: bool = False
+        self._api_cache_path: str = os.path.join(self.base_dir, "api_cache.json")
+        self._api_dry_run: bool = False
+
     def setup_word_source(self, word_file: Optional[str] = None) -> bool:
         """
         Załaduj źródło słów.
@@ -51,19 +60,43 @@ class CrosswordOrchestrator:
                 parent_dir = os.path.dirname(os.path.abspath(__file__))
                 parent_dir = os.path.dirname(parent_dir)  # Wyjdź z Krzyzowka
                 word_file = os.path.join(parent_dir, "dane.txt")
-            
+
             self.word_source = WordSource(word_file)
-            
+
             if not self.word_source.loaded:
                 return False
-            
+
             print(f"[Orchestrator] Źródło słów: OK ({len(self.word_source.get_all_words())} słów)")
             return True
-            
+
         except Exception as e:
             print(f"[Orchestrator] BŁĄD ładowania źródła: {e}")
             return False
-    
+
+    def setup_bin_source(self, bin_file: Optional[str] = None) -> bool:
+        """Załaduj binarną bazę słów slowa.bin do silnika wypełniania."""
+        if bin_file is None:
+            bin_file = os.path.join(
+                self.base_dir, "Konwersja", "konwersja", "slowa.bin"
+            )
+
+        if not os.path.exists(bin_file):
+            print(f"[Orchestrator] Uwaga: Brak pliku binarny słownika: {bin_file}")
+            self.bin_source = None
+            return False
+
+        try:
+            self.bin_source = BinaryWordSource(bin_file)
+            if not self.bin_source.loaded:
+                self.bin_source = None
+                return False
+            print(f"[Orchestrator] Binarna baza słów: OK")
+            return True
+        except Exception as e:
+            print(f"[Orchestrator] BŁĄD ładowania binary word source: {e}")
+            self.bin_source = None
+            return False
+
     def create_output_directory(self, source_filename: str) -> bool:
         """
         Utwórz katalog wyjściowy w formacie WYNIKI_data_godzina_nazwa.
@@ -77,21 +110,21 @@ class CrosswordOrchestrator:
         try:
             now = datetime.datetime.now()
             date_time = now.strftime("%Y%m%d_%H%M%S")
-            
+
             # Wyczyść nazwę
             clean_name = Path(source_filename).stem  # Bez rozszerzenia
-            
+
             output_name = f"WYNIKI_{date_time}_{clean_name}"
             self.output_dir = os.path.join(self.base_dir, output_name)
-            
+
             os.makedirs(self.output_dir, exist_ok=True)
             print(f"[Orchestrator] Katalog wyjściowy: {self.output_dir}")
             return True
-            
+
         except Exception as e:
             print(f"[Orchestrator] BŁĄD tworzenia katalogu: {e}")
             return False
-    
+
     def generate_and_export(
         self,
         width: int,
@@ -100,7 +133,12 @@ class CrosswordOrchestrator:
         word_file: Optional[str] = None,
         num_variants: int = 3,
         multi_strategy: bool = False,
-        progress_callback: Optional[Callable] = None
+        progress_callback: Optional[Callable] = None,
+        use_api: bool = False,
+        use_api_dry_run: bool = False,
+        time_limit: float = 3.0,
+        max_attempts: int = 5,
+        target_valid_variants: Optional[int] = None,
     ) -> bool:
         """
         Wygeneruj krzyżówkę(i) i wyeksportuj do wszystkich formatów.
@@ -121,22 +159,37 @@ class CrosswordOrchestrator:
         if not self.setup_word_source(word_file):
             print("[Orchestrator] BŁĄD: Nie mogę załadować słów")
             return False
-        
+
         # Krok 2: Utwórz katalog wyjściowy
         if not self.create_output_directory(source_filename):
             print("[Orchestrator] BŁĄD: Nie mogę utworzyć katalogu wyjściowego")
             return False
-        
+
+        # Krok 2b: Załaduj binarną bazę słów dla silnika wypełniania
+        self.setup_bin_source()
+        # Czy używać integracji z zewnętrznym API do generowania podpowiedzi?
+        self.use_api_enabled = bool(use_api)
+        self._api_dry_run = bool(use_api_dry_run)
+
         # Krok 3: Wygeneruj warianty
         if multi_strategy:
             return self._generate_multi_strategy(
                 width, height, num_variants, progress_callback
             )
         else:
+            # jeśli nie podano target_valid_variants, użyj num_variants
+            if target_valid_variants is None:
+                target_valid_variants = num_variants
             return self._generate_single_strategy(
-                width, height, num_variants, progress_callback
+                width,
+                height,
+                num_variants,
+                progress_callback,
+                time_limit=time_limit,
+                max_attempts=max_attempts,
+                target_valid_variants=target_valid_variants,
             )
-    
+
     def _generate_single_strategy(
         self,
         width: int,
@@ -149,29 +202,67 @@ class CrosswordOrchestrator:
         print(msg)
         if progress_callback:
             progress_callback(msg)
-        
+
         # Nowy, prawidłowy generator
         generator = CrosswordGeneratorNew(self.word_source)
-        
+
         variants = []
         for i in range(num_variants):
             msg = f"  Wariant {i+1}/{num_variants}..."
             print(msg)
             if progress_callback:
                 progress_callback(msg)
-            
-            grid = generator.generate(width, height, time_limit=3.0)
+
+            # Spróbuj wygenerować siatkę zgodną z zasadami Scrabble
+            max_attempts = 5
+            grid = None
+            for attempt in range(1, max_attempts + 1):
+                grid = generator.generate(width, height, time_limit=3.0)
+                # Najpierw szybka walidacja
+                valid, invalid_words = self._is_grid_scrabble_valid(grid)
+                if valid:
+                    break
+
+                # Jeśli mamy binarny silnik, spróbuj uzupełnić
+                if self.bin_source and self.bin_source.loaded:
+                    grid = self._fill_grid_with_engine(grid)
+                    valid, invalid_words = self._is_grid_scrabble_valid(grid)
+                    if valid:
+                        break
+
+                print(
+                    f"    Próba {attempt}/{max_attempts} - niezgodna z regułami Scrabble. Nieprawidłowe wyrazy: {invalid_words}"
+                )
+
+            if not grid:
+                print(
+                    f"[Orchestrator] Błąd: nie udało się wygenerować siatki dla wariantu {i+1}"
+                )
+                continue
+
+            if not self._is_grid_scrabble_valid(grid)[0]:
+                print(
+                    f"[Orchestrator] Ostrzeżenie: Wariant {i+1} nadal zawiera nieprawidłowe wyrazy, pomijam eksport tego wariantu."
+                )
+                # Nie dodajemy do listy wariantów
+                continue
+
             variants.append(grid)
-        
+
         print(f"[Orchestrator] Wygenerowano warianty")
-        
-        # Eksportuj każdy wariant
+
+        used_words: Set[str] = set()
+        # Eksportuj każdy wariant i jego wersję silnikową
         for i, grid in enumerate(variants, 1):
             self._export_variant(grid, i, width, height)
-        
+            self._export_engine_variant(grid, i, width, height)
+            used_words.update(w.upper() for w, _, _, _, _ in grid.placed_words)
+
+        self._save_unused_words(used_words)
+
         print(f"[Orchestrator] Gotowe! Wyniki w: {self.output_dir}")
         return True
-    
+
     def _generate_multi_strategy(
         self,
         width: int,
@@ -184,37 +275,38 @@ class CrosswordOrchestrator:
         print(msg)
         if progress_callback:
             progress_callback(msg)
-        
+
         # Utwórz generator multi-strategy
         multi_gen = MultiStrategyGenerator(self.word_source)
-        
+
         # Funkcja progress do generator
         def strategy_progress(strategy_name: str, current: int, total: int):
             msg = f"  [{current}/{total}] Generuję: {strategy_name}..."
             print(msg)
             if progress_callback:
                 progress_callback(msg)
-        
+
         # Wygeneruj wszystkie strategie - NIE sortuj aby zobaczyć różne podejścia
         results = multi_gen.generate_all_strategies(
             width, height, progress_callback=strategy_progress, sort_by_density=False
         )
-        
+
         # Wyświetl statystyki
         print(f"[Orchestrator] Wyniki generowania:")
         for i, result in enumerate(results, 1):
             print(f"  {i}. {result}")
-        
+
         # ZMIANA: Zamiast brać top num_variants po gęstości,
         # weź pierwsze num_variants strategii w oryginalnej kolejności
         # To pokazuje różne podejścia
         selected_results = results[:num_variants]
-        
+
         # Jeśli mamy mniej wyników niż variants, uzupełnij
         if len(selected_results) < num_variants:
             selected_results = results
-        
+
         # Eksportuj wybrane warianty
+        used_words: Set[str] = set()
         for i, result in enumerate(selected_results, 1):
             self._export_variant_multi_strategy(
                 result.grid,
@@ -225,10 +317,13 @@ class CrosswordOrchestrator:
                 width,
                 height
             )
-        
+            self._export_engine_variant(result.grid, i, width, height)
+            used_words.update(w.upper() for w, _, _, _, _ in result.grid.placed_words)
+
+        self._save_unused_words(used_words)
         print(f"[Orchestrator] Gotowe! Wyniki w: {self.output_dir}")
         return True
-    
+
     def _export_variant_multi_strategy(
         self,
         grid: CrosswordGrid,
@@ -246,53 +341,146 @@ class CrosswordOrchestrator:
         """
         # Zaokrąglij procent do całkowitej liczby
         empty_percent_int = int(round(empty_percent))
-        
+
         # Formatuj nazwy z metadanes
         empty_marker = f"_{empty_percent_int:02d}_"
         letter_marker = f"_{letter_count:03d}"
-        
+
         # Prefiks pliku
         variant_prefix = f"{variant_num:03d}"
-        
+
         # Print strategii
         print(f"  Wariant {variant_num}: {strategy_name} | "
               f"Puste: {empty_percent:.1f}% | Litery: {letter_count}")
-        
+
         # PNG uzupełniona
         renderer = CrosswordImageRenderer(cell_size=40)
         img_filled = renderer.render(grid, filled=True)
         png_filled_name = f"{variant_prefix}{empty_marker}{letter_marker}_completed.png"
         png_filled_path = os.path.join(self.output_dir, png_filled_name)
         img_filled.save(png_filled_path, "PNG")
-        
+
         # PNG pusta
         img_blank = renderer.render(grid, filled=False)
         png_blank_name = f"{variant_prefix}{empty_marker}{letter_marker}_blank.png"
         png_blank_path = os.path.join(self.output_dir, png_blank_name)
         img_blank.save(png_blank_path, "PNG")
-        
+
         # TXT
         txt_name = f"{variant_prefix}{empty_marker}{letter_marker}.txt"
         txt_path = os.path.join(self.output_dir, txt_name)
-        self._save_clues_txt(grid, txt_path)
-        
+        self._save_clues_txt(
+            grid,
+            txt_path,
+            highlight_words=set(w.upper() for w in self.word_source.get_all_words()),
+        )
+
         # XLSX (tylko dla wariantu 1)
         if variant_num == 1:
             xlsx_name = f"krizowka{empty_marker}{letter_marker}.xlsx"
             xlsx_path = os.path.join(self.output_dir, xlsx_name)
             exporter = ExcelExporter()
             exporter.export(grid, xlsx_path)
-            
+
             # HTML (tylko dla wariantu 1)
             html_name = f"krizowka{empty_marker}{letter_marker}.html"
             html_path = os.path.join(self.output_dir, html_name)
             HTMLExporter.export(grid, html_path)
-    
-    def _export_variant(self, grid: CrosswordGrid, variant_num: int, width: int, height: int) -> None:
+
+    def _save_clues_txt(
+        self,
+        grid: CrosswordGrid,
+        filepath: str,
+        highlight_words: Optional[Set[str]] = None,
+    ) -> None:
+        """Zapisz pytania do pliku TXT (bez duplikatów)."""
+        try:
+            h_clues, v_clues = grid.get_clues_list()
+
+            # Deduplikuj pytania (jeśli tego samego numeru pojawia się wiele razy)
+            h_clues_unique = {}
+            for num, clue, word in h_clues:
+                if num not in h_clues_unique:
+                    h_clues_unique[num] = (clue, word)
+
+            v_clues_unique = {}
+            for num, clue, word in v_clues:
+                if num not in v_clues_unique:
+                    v_clues_unique[num] = (clue, word)
+
+            lines = []
+            lines.append("KRZYŻÓWKA - PYTANIA")
+            lines.append("=" * 60)
+            lines.append("")
+            lines.append("POZIOMO:")
+            lines.append("-" * 60)
+
+            highlight = highlight_words or set()
+            for num in sorted(h_clues_unique.keys()):
+                clue, word = h_clues_unique[num]
+                # Jeśli brak podpowiedzi i włączono API, spróbuj wygenerować
+                if (
+                    not clue
+                    or clue.strip() == ""
+                    or clue.strip().upper() == word.upper()
+                ) and getattr(self, "use_api_enabled", False):
+                    try:
+                        generated = self._generate_clue_via_api(word)
+                        if generated:
+                            clue = generated
+                    except Exception:
+                        pass
+                if word.upper() in highlight:
+                    clue = f"*{clue}*"
+                lines.append(f"{num:2d}. {clue} ({len(word)} liter)")
+
+            lines.append("")
+            lines.append("PIONOWO:")
+            lines.append("-" * 60)
+
+            for num in sorted(v_clues_unique.keys()):
+                clue, word = v_clues_unique[num]
+                # Jeśli brak podpowiedzi i włączono API, spróbuj wygenerować
+                if (
+                    not clue
+                    or clue.strip() == ""
+                    or clue.strip().upper() == word.upper()
+                ) and getattr(self, "use_api_enabled", False):
+                    try:
+                        generated = self._generate_clue_via_api(word)
+                        if generated:
+                            clue = generated
+                    except Exception:
+                        pass
+                if word.upper() in highlight:
+                    clue = f"*{clue}*"
+                lines.append(f"{num:2d}. {clue} ({len(word)} liter)")
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+
+        except Exception as e:
+            print(f"[Orchestrator] BŁĄD zapisu TXT: {e}")
+
+    def _export_variant(
+        self,
+        grid: CrosswordGrid,
+        variant_num: int,
+        width: int,
+        height: int,
+        file_prefix: Optional[str] = None,
+    ) -> None:
         """Eksportuj jeden wariant do wszystkich formatów (stare nazewnictwo)."""
-        
-        variant_prefix = f"{variant_num:03d}"
-        
+        # Waliduj przed eksportem
+        valid, invalid_words = self._is_grid_scrabble_valid(grid)
+        if not valid:
+            print(
+                f"  Eksport pominięty dla wariantu {variant_num}: nieprawidłowe wyrazy: {invalid_words}"
+            )
+            return
+
+        variant_prefix = file_prefix if file_prefix else f"{variant_num:03d}"
+
         # PNG krzyżówki - wersja uzupełniona (z literami)
         print(f"  Exportuję wariant {variant_num}: PNG (uzupełniona)...")
         renderer = CrosswordImageRenderer(cell_size=40)
@@ -300,71 +488,464 @@ class CrosswordOrchestrator:
         png_filled_path = os.path.join(self.output_dir, f"{variant_prefix}_completed.png")
         img_filled.save(png_filled_path, "PNG")
         print(f"    {png_filled_path}")
-        
+
         # PNG krzyżówki - wersja pusta (do wypełniania)
         print(f"  Exportuję wariant {variant_num}: PNG (pusta)...")
         img_blank = renderer.render(grid, filled=False)
         png_blank_path = os.path.join(self.output_dir, f"{variant_prefix}_blank.png")
         img_blank.save(png_blank_path, "PNG")
         print(f"    {png_blank_path}")
-        
+
         # TXT z pytaniami
         print(f"  Exportuję wariant {variant_num}: TXT...")
         txt_path = os.path.join(self.output_dir, f"{variant_prefix}.txt")
-        self._save_clues_txt(grid, txt_path)
+        self._save_clues_txt(
+            grid,
+            txt_path,
+            highlight_words=set(w.upper() for w in self.word_source.get_all_words()),
+        )
         print(f"    {txt_path}")
-        
+
         # XLSX (tylko dla pierwszego wariantu)
         if variant_num == 1:
             print(f"  Exportuję wariant {variant_num}: XLSX...")
-            xlsx_path = os.path.join(self.output_dir, "krizowka.xlsx")
+            if file_prefix:
+                xlsx_path = os.path.join(
+                    self.output_dir, f"krizowka_{variant_prefix}.xlsx"
+                )
+            else:
+                xlsx_path = os.path.join(self.output_dir, "krizowka.xlsx")
             exporter = ExcelExporter()
             exporter.export(grid, xlsx_path)
             print(f"    {xlsx_path}")
-            
+
             # HTML (tylko dla pierwszego wariantu)
             print(f"  Exportuję wariant {variant_num}: HTML...")
-            html_path = os.path.join(self.output_dir, "krizowka.html")
+            if file_prefix:
+                html_path = os.path.join(
+                    self.output_dir, f"krizowka_{variant_prefix}.html"
+                )
+            else:
+                html_path = os.path.join(self.output_dir, "krizowka.html")
             HTMLExporter.export(grid, html_path)
             print(f"    {html_path}")
-    
-    def _save_clues_txt(self, grid: CrosswordGrid, filepath: str) -> None:
-        """Zapisz pytania do pliku TXT (bez duplikatów)."""
+
+    def _export_engine_variant(
+        self, grid: CrosswordGrid, variant_num: int, width: int, height: int
+    ) -> None:
+        """Wygeneruj i wyeksportuj wersję silnika uzupełniającego."""
+        if not self.bin_source or not self.bin_source.loaded:
+            print(
+                f"  Silnik binarny pominięty dla wariantu {variant_num}: brak slowa.bin"
+            )
+            return
+
+        print(f"  Silnik wypełniania dla wariantu {variant_num}...")
+        engine_grid = self._fill_grid_with_engine(grid.copy())
+        engine_grid.refresh_clues(self.word_source)
+
+        # Waliduj przed eksportem wersji silnikowej
+        valid, invalid_words = self._is_grid_scrabble_valid(engine_grid)
+        if not valid:
+            print(
+                f"  Eksport silnikowy pominięty dla wariantu {variant_num}: nieprawidłowe wyrazy: {invalid_words}"
+            )
+            return
+
+        prefix = f"silnik_{variant_num:03d}"
+        self._export_variant(
+            engine_grid, variant_num, width, height, file_prefix=prefix
+        )
+
+    def _fill_grid_with_engine(self, grid: CrosswordGrid) -> CrosswordGrid:
+        """Spróbuj wypełnić wolne pola słowami ze słownika binarnego."""
+        if not self.bin_source or not self.bin_source.loaded:
+            return grid
+
+        grid.refresh_clues(self.word_source)
+        changed = True
+        while changed:
+            changed = False
+            candidate_slots = self._collect_engine_slots(grid)
+            for slot in candidate_slots:
+                pattern = slot["pattern"]
+                if pattern.count(".") == 0:
+                    continue
+                if all(ch == "." for ch in pattern):
+                    continue
+
+                matches = self.bin_source.find_matching(pattern, max_results=20)
+                if not matches:
+                    continue
+
+                # Wybierz pierwsze dopasowanie; preferuj dłuższe słowa i sloty z więcej literami
+                match = matches[0]
+                if grid.place_word(
+                    match,
+                    slot["row"],
+                    slot["col"],
+                    slot["direction"],
+                    self.word_source.get_word(match) or f"({len(match)} liter)",
+                ):
+                    changed = True
+                    grid.refresh_clues(self.word_source)
+                    break
+
+        return grid
+
+    def _collect_engine_slots(self, grid: CrosswordGrid) -> List[dict]:
+        """Zbierz otwarte sloty do wypełnienia przez silnik binarny."""
+        slots: List[dict] = []
+
+        for row in range(grid.height):
+            for col in range(grid.width):
+                if grid.grid[row][col] is None:
+                    continue
+
+                # Poziomo
+                if col == 0 or grid.grid[row][col - 1] is None:
+                    pattern, length = self._build_slot_pattern(
+                        grid, row, col, Direction.HORIZONTAL
+                    )
+                    if (
+                        length >= 2
+                        and "." in pattern
+                        and any(ch != "." for ch in pattern)
+                    ):
+                        slots.append(
+                            {
+                                "direction": Direction.HORIZONTAL,
+                                "row": row,
+                                "col": col,
+                                "pattern": pattern,
+                                "fixed": pattern.count("."),
+                            }
+                        )
+
+                # Pionowo
+                if row == 0 or grid.grid[row - 1][col] is None:
+                    pattern, length = self._build_slot_pattern(
+                        grid, row, col, Direction.VERTICAL
+                    )
+                    if (
+                        length >= 2
+                        and "." in pattern
+                        and any(ch != "." for ch in pattern)
+                    ):
+                        slots.append(
+                            {
+                                "direction": Direction.VERTICAL,
+                                "row": row,
+                                "col": col,
+                                "pattern": pattern,
+                                "fixed": pattern.count("."),
+                            }
+                        )
+
+        # Preferuj sloty z najdłuższym wzorem i większą liczbą ustalonych liter
+        slots.sort(key=lambda s: (-len(s["pattern"]), s["pattern"].count(".")))
+        return slots
+
+    def _build_slot_pattern(
+        self, grid: CrosswordGrid, row: int, col: int, direction: Direction
+    ) -> tuple:
+        pattern = []
+        length = 0
+
+        if direction == Direction.HORIZONTAL:
+            c = col
+            while c < grid.width and grid.grid[row][c] is not None:
+                cell = grid.grid[row][c]
+                if cell == "":
+                    pattern.append(".")
+                else:
+                    pattern.append(cell)
+                length += 1
+                c += 1
+        else:
+            r = row
+            while r < grid.height and grid.grid[r][col] is not None:
+                cell = grid.grid[r][col]
+                if cell == "":
+                    pattern.append(".")
+                else:
+                    pattern.append(cell)
+                length += 1
+                r += 1
+
+        return "".join(pattern), length
+
+    def _get_final_words(self, grid: CrosswordGrid) -> List[str]:
+        """Zwróć wszystkie skończone wyrazy (poziome i pionowe) na siatce.
+
+        Najpierw próbujemy użyć `grid.placed_words` (jeśli dostępne), co jest szybsze
+        i niezawodne. Jeśli nie ma tej struktury, robimy pełne skanowanie siatki.
+        """
+        # Jeśli generator przechowuje słowa w `placed_words`, użyj ich
         try:
-            h_clues, v_clues = grid.get_clues_list()
-            
-            # Deduplikuj pytania (jeśli tego samego numeru pojawia się wiele razy)
-            h_clues_unique = {}
-            for num, clue, word in h_clues:
-                if num not in h_clues_unique:
-                    h_clues_unique[num] = (clue, word)
-            
-            v_clues_unique = {}
-            for num, clue, word in v_clues:
-                if num not in v_clues_unique:
-                    v_clues_unique[num] = (clue, word)
-            
-            lines = []
-            lines.append("KRZYŻÓWKA - PYTANIA")
-            lines.append("=" * 60)
-            lines.append("")
-            lines.append("POZIOMO:")
-            lines.append("-" * 60)
-            
-            for num in sorted(h_clues_unique.keys()):
-                clue, word = h_clues_unique[num]
-                lines.append(f"{num:2d}. {clue} ({len(word)} liter)")
-            
-            lines.append("")
-            lines.append("PIONOWO:")
-            lines.append("-" * 60)
-            
-            for num in sorted(v_clues_unique.keys()):
-                clue, word = v_clues_unique[num]
-                lines.append(f"{num:2d}. {clue} ({len(word)} liter)")
-            
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write('\n'.join(lines))
-            
+            placed = getattr(grid, "placed_words", None)
+            if placed and isinstance(placed, list):
+                return [w.upper() for w, _, _, _, _ in placed if w and len(w) >= 2]
+        except Exception:
+            pass
+
+        words: List[str] = []
+        # poziomo
+        for r in range(grid.height):
+            c = 0
+            while c < grid.width:
+                if grid.grid[r][c] is None:
+                    c += 1
+                    continue
+                # start
+                if c == 0 or grid.grid[r][c - 1] is None:
+                    buf = []
+                    cc = c
+                    while cc < grid.width and grid.grid[r][cc] is not None:
+                        ch = grid.grid[r][cc]
+                        if not ch or ch == "":
+                            buf = []
+                            break
+                        buf.append(ch)
+                        cc += 1
+                    if len(buf) >= 2:
+                        words.append("".join(buf).upper())
+                    c = cc
+                else:
+                    c += 1
+
+        # pionowo
+        for c in range(grid.width):
+            r = 0
+            while r < grid.height:
+                if grid.grid[r][c] is None:
+                    r += 1
+                    continue
+                if r == 0 or grid.grid[r - 1][c] is None:
+                    buf = []
+                    rr = r
+                    while rr < grid.height and grid.grid[rr][c] is not None:
+                        ch = grid.grid[rr][c]
+                        if not ch or ch == "":
+                            buf = []
+                            break
+                        buf.append(ch)
+                        rr += 1
+                    if len(buf) >= 2:
+                        words.append("".join(buf).upper())
+                    r = rr
+                else:
+                    r += 1
+
+        return words
+
+    def _is_word_valid(self, word: str) -> bool:
+        """Sprawdź poprawność wyrazu w bazie: najpierw `bin_source`, potem `word_source`."""
+        w = word.strip().upper()
+        if not w:
+            return False
+        try:
+            if self.bin_source and self.bin_source.loaded:
+                words = self.bin_source.get_words_by_length(len(w))
+                if w in (x.upper() for x in words):
+                    return True
+        except Exception:
+            pass
+
+        if self.word_source and self.word_source.loaded:
+            return self.word_source.is_valid(w)
+
+        return False
+
+    def _is_grid_scrabble_valid(self, grid: CrosswordGrid) -> tuple:
+        """Sprawdź, czy wszystkie finalne wyrazy na siatce są poprawne wg słownika.
+
+        Zwraca (bool, list) gdzie lista to nieprawidłowe wyrazy (może być pusta).
+        """
+        words = self._get_final_words(grid)
+        invalid = []
+        for w in words:
+            if not self._is_word_valid(w):
+                invalid.append(w)
+        return (len(invalid) == 0, invalid)
+
+    def _save_unused_words(self, used_words: Set[str]) -> None:
+        """Zapisz niewykorzystane słowa z wejściowej listy do pliku."""
+        if not self.output_dir or not self.word_source:
+            return
+
+        source_words = [w.upper() for w in self.word_source.get_all_words()]
+        unused = [w for w in source_words if w.upper() not in used_words]
+        path = os.path.join(self.output_dir, "niewykorzystane_słowa.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            for word in unused:
+                f.write(word + "\n")
+
+    def _generate_single_strategy(
+        self,
+        width: int,
+        height: int,
+        num_variants: int,
+        progress_callback: Optional[Callable] = None,
+        time_limit: float = 3.0,
+        max_attempts: int = 5,
+        target_valid_variants: int = 3,
+    ) -> bool:
+        """Nowy generator - próbuje wygenerować `target_valid_variants` poprawnych wariantów.
+
+        Parametry:
+          - `time_limit` - limit czasu (sekundy) dla pojedynczego wywołania generatora
+          - `max_attempts` - maksymalna liczba prób na jeden wariant
+          - `target_valid_variants` - ile poprawnych wariantów chcemy uzyskać
+        """
+        msg = f"[Orchestrator] Generuję do {target_valid_variants} poprawnych wariantów krzyżówki ({width}x{height})..."
+        print(msg)
+        if progress_callback:
+            progress_callback(msg)
+
+        generator = CrosswordGeneratorNew(self.word_source)
+
+        variants: List[CrosswordGrid] = []
+        attempts = 0
+        max_total_attempts = num_variants * max_attempts
+
+        while len(variants) < target_valid_variants and attempts < max_total_attempts:
+            attempts += 1
+            idx = len(variants) + 1
+            print(
+                f"  Próba generowania [{attempts}/{max_total_attempts}] (zbieram wariant {idx})..."
+            )
+
+            grid = generator.generate(width, height, time_limit=time_limit)
+
+            valid, invalid_words = self._is_grid_scrabble_valid(grid)
+            if not valid and self.bin_source and self.bin_source.loaded:
+                # spróbuj uzupełnić silnikiem
+                grid = self._fill_grid_with_engine(grid)
+                valid, invalid_words = self._is_grid_scrabble_valid(grid)
+
+            if valid:
+                variants.append(grid)
+                print(
+                    f"    Uzyskano poprawny wariant ({len(variants)}/{target_valid_variants})"
+                )
+            else:
+                print(f"    Nieprawidłowy wariant: {invalid_words}")
+
+        if not variants:
+            print(
+                "[Orchestrator] Nie udało się wygenerować żadnego poprawnego wariantu."
+            )
+            return False
+
+        print(
+            f"[Orchestrator] Zebrano {len(variants)} poprawnych wariantów, eksportuję..."
+        )
+
+        used_words: Set[str] = set()
+        for i, grid in enumerate(variants, 1):
+            self._export_variant(grid, i, width, height)
+            self._export_engine_variant(grid, i, width, height)
+            used_words.update(w.upper() for w, _, _, _, _ in grid.placed_words)
+
+        self._save_unused_words(used_words)
+        print(f"[Orchestrator] Gotowe! Wyniki w: {self.output_dir}")
+        return True
+
+    def _generate_clue_via_api(self, word: str) -> str:
+        """Spróbuj wygenerować krótką definicję/podpowiedź dla `word` korzystając z zewnętrznego API.
+
+        Funkcja czyta klucz z `API_klucz/deepseek.txt` w katalogu `base_dir`.
+        Jeśli nie ma klucza lub wystąpi błąd - zwraca pusty string.
+        """
+        try:
+            key_path = os.path.join(self.base_dir, "API_klucz", "deepseek.txt")
+            if not os.path.exists(key_path):
+                return ""
+
+            with open(key_path, "r", encoding="utf-8") as kf:
+                api_key = kf.read().strip()
+            if not api_key:
+                return ""
+
+            # Przygotuj prosty prompt (bardziej precyzyjny)
+            prompt = (
+                f"Podaj krótką (maks. jedno zdanie) definicję słowa '{word}' po polsku. "
+                "Nie podawaj przykładów użycia ani dodatkowych komentarzy. Jeśli to imię własne, napisz 'imię własne'."
+            )
+
+            # Domyślny endpoint Deepseek (może wymagać dostosowania)
+            endpoint = "https://api.deepseek.ai/generate"
+
+            # Wczytaj cache jeśli jeszcze nie
+            word_key = word.strip().upper()
+            if not self._api_cache_loaded:
+                try:
+                    if os.path.exists(self._api_cache_path):
+                        with open(self._api_cache_path, "r", encoding="utf-8") as cf:
+                            self._api_cache = json.load(cf)
+                except Exception:
+                    self._api_cache = {}
+                self._api_cache_loaded = True
+
+            # Jeśli jest w cache - zwróć natychmiast
+            cached = self._api_cache.get(word_key)
+            if cached:
+                return cached
+
+            # Jeżeli tryb dry-run i brak cache - nie wykonuj żądania
+            if getattr(self, "_api_dry_run", False) and not cached:
+                return ""
+
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+            payload: Dict[str, Any] = {"prompt": prompt, "max_tokens": 60}
+
+            max_retries = 3
+            backoff_base = 0.5
+            resp_data: Any = None
+            for attempt in range(max_retries):
+                try:
+                    resp = requests.post(
+                        endpoint, json=payload, headers=headers, timeout=6
+                    )
+                    if resp.status_code == 200:
+                        resp_data = resp.json()
+                        break
+                    else:
+                        # krótkie opóźnienie przy błędzie serwera
+                        time.sleep(backoff_base * (2**attempt))
+                except requests.RequestException:
+                    time.sleep(backoff_base * (2**attempt))
+
+            if not resp_data:
+                return ""
+
+            text = ""
+            if isinstance(resp_data, dict):
+                text = resp_data.get("text") or resp_data.get("result") or ""
+                if (
+                    not text
+                    and "choices" in resp_data
+                    and isinstance(resp_data["choices"], list)
+                ):
+                    c = resp_data["choices"][0]
+                    text = c.get("text") or c.get("message", {}).get("content", "")
+
+            text = (text or "").strip()
+
+            # Zapisz do cache jeśli mamy wynik
+            if text:
+                try:
+                    self._api_cache[word_key] = text
+                    with open(self._api_cache_path, "w", encoding="utf-8") as cf:
+                        json.dump(self._api_cache, cf, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
+
+            return text
         except Exception as e:
-            print(f"[Orchestrator] BŁĄD zapisu TXT: {e}")
+            print(f"[Orchestrator] Błąd API generowania podpowiedzi: {e}")
+            return ""

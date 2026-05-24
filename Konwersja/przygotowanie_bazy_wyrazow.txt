@@ -1,0 +1,8 @@
+ściągnij z 
+https://sjp.pl/sl/growy/
+
+słownik zawiera 45MB i trzeba go programem  konwersja_na_db.py  
+zamienić na slowa.db
+i przenieść do głównego katalogu.
+
+
