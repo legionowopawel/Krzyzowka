@@ -56,6 +56,11 @@ class GeneratorThread(QThread):
         color_text: tuple = None,
         color_clue_num: tuple = None,
         font_name: str = "Arial",
+        progressive_mode: bool = False,
+        progressive_phases: int = 3,
+        max_total_variants: int = 100,
+        edge_first_mode: bool = False,
+        edge_first_variants: int = 3,
     ):
         super().__init__()
         self.orchestrator = orchestrator
@@ -74,6 +79,11 @@ class GeneratorThread(QThread):
         self.color_text = color_text
         self.color_clue_num = color_clue_num
         self.font_name = font_name
+        self.progressive_mode = progressive_mode
+        self.progressive_phases = progressive_phases
+        self.max_total_variants = max_total_variants
+        self.edge_first_mode = edge_first_mode
+        self.edge_first_variants = edge_first_variants
 
     def run(self):
         """Wykonaj generowanie."""
@@ -99,6 +109,11 @@ class GeneratorThread(QThread):
                 use_api=self.use_api,
                 use_extra=self.use_extra,
                 min_word_length=self.min_word_length,
+                progressive_mode=self.progressive_mode,
+                progressive_phases=self.progressive_phases,
+                max_total_variants=self.max_total_variants,
+                edge_first_mode=self.edge_first_mode,
+                edge_first_variants=self.edge_first_variants,
             )
 
             if success:
@@ -202,6 +217,24 @@ class CrosswordGeneratorGUI(QMainWindow):
         title.setFont(title_font)
         layout.addWidget(title)
 
+        # GPU/CPU Status
+        gpu_status_label = QLabel()
+        backend = getattr(self.orchestrator, 'gpu_backend', 'numpy')
+        if self.orchestrator.use_cuda:
+            gpu_status_label.setText(f"✓ GPU (CUDA) + {backend.upper()} — przyspieszenie aktywne!")
+            gpu_status_label.setStyleSheet(
+                "color: green; font-weight: bold; font-size: 12px;"
+            )
+        elif backend == "cupy":
+            gpu_status_label.setText(f"✓ CuPy (GPU bez CUDA torch) — przyspieszenie aktywne!")
+            gpu_status_label.setStyleSheet("color: darkgreen; font-weight: bold; font-size: 12px;")
+        else:
+            gpu_status_label.setText(f"⚠ CPU (NumPy) — brak GPU/CUDA")
+            gpu_status_label.setStyleSheet(
+                "color: orange; font-weight: bold; font-size: 12px;"
+            )
+        layout.addWidget(gpu_status_label)
+
         # --- Sekcja: Wymiary siatki (BEZ LIMITU) ---
         layout.addSpacing(15)
 
@@ -272,21 +305,38 @@ class CrosswordGeneratorGUI(QMainWindow):
         # --- Sekcja: Liczba wariantów ---
         layout.addSpacing(15)
 
+        variants_group = QGroupBox("Liczba wariantów i intensywność szukania")
+        variants_vlay = QVBoxLayout()
+
         variants_layout = QHBoxLayout()
-        variants_layout.addWidget(QLabel("Liczba wariantów:"))
+        variants_layout.addWidget(QLabel("Liczba wariantów do wygenerowania:"))
         self.variants_spin = QSpinBox()
-        self.variants_spin.setValue(3)
+        self.variants_spin.setValue(100)
         self.variants_spin.setMinimum(1)
-        self.variants_spin.setMaximum(10)
+        self.variants_spin.setMaximum(10000)  # Obsługa do 10000 wariantów (zapis do pliku)
+        self.variants_spin.setToolTip(
+            "Liczba wariantów krzyżówki do wygenerowania.\n"
+            "Przy dużych liczbach (>100) warianty są zapisywane do pliku\n"
+            "i pamięć jest zwalniana na bieżąco."
+        )
         variants_layout.addWidget(self.variants_spin)
+        variants_layout.addWidget(QLabel("(>100: zapis do pliku, brak limitu RAM)"))
         variants_layout.addStretch()
-        layout.addLayout(variants_layout)
+        variants_vlay.addLayout(variants_layout)
+
+        # Informacja o GPU
+        gpu_info = QLabel()
+        variants_vlay.addWidget(gpu_info)
+        self._gpu_info_label = gpu_info
+
+        variants_group.setLayout(variants_vlay)
+        layout.addWidget(variants_group)
 
         # --- Sekcja: Multi-strategy checkbox ---
         layout.addSpacing(10)
 
         self.multi_strategy_check = QCheckBox("Używać 6 strategii umieszczania wyrazów")
-        self.multi_strategy_check.setChecked(False)
+        self.multi_strategy_check.setChecked(True)  # Domyślnie ON - najlepsze rezultaty
         self.multi_strategy_check.setToolTip(
             "Jeśli zaznaczone, program generuje krzyżówki 6 różnymi metodami:\n"
             "1. CENTERED, 2. TOP_LEFT, 3. TOP_CENTER,\n"
@@ -296,11 +346,68 @@ class CrosswordGeneratorGUI(QMainWindow):
 
         # --- Sekcja: Tryb EXTRA ---
         self.extra_mode_check = QCheckBox("Tryb EXTRA - szukaj lepszych rozwiązań")
-        self.extra_mode_check.setChecked(False)
+        self.extra_mode_check.setChecked(True)  # Domyślnie ON - szuka najlepszych rozwiązań
         self.extra_mode_check.setToolTip(
             "Włącz, aby program przeprowadzał więcej prób i wybierał bardziej zagęszczone rozwiązania."
         )
         layout.addWidget(self.extra_mode_check)
+
+        # --- Sekcja: Tryb PROGRESYWNY =---
+        layout.addSpacing(10)
+
+        self.progressive_check = QCheckBox(
+            "Tryb PROGRESYWNY - uzupełnianie fazami (Dalsze_uzupelnianie1-5)"
+        )
+        self.progressive_check.setChecked(False)
+        self.progressive_check.setToolTip(
+            "Faza 1: Krzyżówka z baza.txt\n"
+            "Fazy 2+: Coraz bardziej wypełniona w podkatalogach\n"
+            "Każda faza tworzy nowy katalog na bieżąco"
+        )
+        layout.addWidget(self.progressive_check)
+
+        # Liczba faz progresywnych
+        phases_layout = QHBoxLayout()
+        phases_layout.addWidget(QLabel("Liczba faz (gdy progresywny):"))
+        self.phases_spin = QSpinBox()
+        self.phases_spin.setValue(3)
+        self.phases_spin.setMinimum(2)
+        self.phases_spin.setMaximum(6)
+        phases_layout.addWidget(self.phases_spin)
+        phases_layout.addStretch()
+        layout.addLayout(phases_layout)
+
+        # --- Sekcja: Strategia od brzegów (EDGE_FIRST) ---
+        layout.addSpacing(10)
+
+        self.edge_first_check = QCheckBox(
+            "Strategia od brzegów — maksymalne zagęszczenie siatki"
+        )
+        self.edge_first_check.setChecked(False)
+        self.edge_first_check.setToolTip(
+            "Nowa strategia: najdłuższe wyrazy trafiają na górne krawędzie i boki planszy,\n"
+            "do nich krzyżowane są pozostałe słowa — od najdłuższych.\n"
+            "Wolne pola wypełniane resztą bazy.\n"
+            "Cel: siatka zwarta, gęsta, dużo przeplotu, minimum pustych pól.\n"
+            "Wyniki zapisywane w osobnym katalogu EdgeFirst/."
+        )
+        layout.addWidget(self.edge_first_check)
+
+        edge_variants_layout = QHBoxLayout()
+        edge_variants_layout.addWidget(QLabel("Liczba wariantów od brzegów:"))
+        self.edge_variants_spin = QSpinBox()
+        self.edge_variants_spin.setValue(3)
+        self.edge_variants_spin.setMinimum(1)
+        self.edge_variants_spin.setMaximum(50)
+        self.edge_variants_spin.setToolTip(
+            "Ile wariantów strategii EDGE_FIRST wygenerować.\n"
+            "Każdy wariant to niezależna próba maksymalnego zagęszczenia siatki.\n"
+            "Więcej wariantów = większa szansa na najgęstszy układ."
+        )
+        edge_variants_layout.addWidget(self.edge_variants_spin)
+        edge_variants_layout.addWidget(QLabel("(więcej = gęstsze szukanie)"))
+        edge_variants_layout.addStretch()
+        layout.addLayout(edge_variants_layout)
 
         # --- Sekcja: API & DeepSeek ---
         layout.addSpacing(10)
@@ -308,7 +415,7 @@ class CrosswordGeneratorGUI(QMainWindow):
         self.use_api_check = QCheckBox(
             "Używać DeepSeek do generowania pytań krzyżówkowych"
         )
-        self.use_api_check.setChecked(False)
+        self.use_api_check.setChecked(True)  # Domyślnie ON - podpowiedzi DeepSeek
         self.use_api_check.setToolTip("Wymaga klucza w API_klucz/deepseek.txt")
         layout.addWidget(self.use_api_check)
 
@@ -573,6 +680,10 @@ class CrosswordGeneratorGUI(QMainWindow):
         num_variants = self.variants_spin.value()
         multi_strategy = self.multi_strategy_check.isChecked()
         use_api = self.use_api_check.isChecked()
+        progressive_mode = self.progressive_check.isChecked()
+        progressive_phases = self.phases_spin.value()
+        edge_first_mode = self.edge_first_check.isChecked()
+        edge_first_variants = self.edge_variants_spin.value()
 
         # Validacja
         if width < 5 or height < 5:
@@ -601,6 +712,30 @@ class CrosswordGeneratorGUI(QMainWindow):
             self.output_text.append("  4. MIDDLE_LEFT — ze środka lewej krawędzi")
             self.output_text.append("  5. DENSE_MODE — maksymalna gęstość")
             self.output_text.append("  6. RANDOM — losowe umieszczenie")
+            self.output_text.append("")
+            self.output_text.append("Postęp:")
+        elif edge_first_mode:
+            self.output_text.append("Tryb: EDGE_FIRST (od brzegów)")
+            self.output_text.append(f"Wariantów: {edge_first_variants}")
+            self.output_text.append("")
+            self.output_text.append("Algorytm:")
+            self.output_text.append("  1. Najdłuższe wyrazy → górna krawędź i boki")
+            self.output_text.append("  2. Krzyżowanie ku środkowi — od najdłuższych")
+            self.output_text.append("  3. Agresywne wypełnianie wnętrza siatki")
+            self.output_text.append("  4. Minimalizacja pustych pól")
+            self.output_text.append("  Wyniki: katalog EdgeFirst/")
+            self.output_text.append("")
+            self.output_text.append("Postęp:")
+        elif progressive_mode:
+            self.output_text.append("Tryb: PROGRESYWNY")
+            self.output_text.append(f"Faz: {progressive_phases}")
+            self.output_text.append("")
+            self.output_text.append("Układ:")
+            self.output_text.append("  Faza 1: Krzyżówka z baza.txt")
+            self.output_text.append("  Fazy 2+: Coraz bardziej wypełniona")
+            self.output_text.append(
+                "  Katalogi: Dalsze_uzupelnianie1, Dalsze_uzupelnianie2, ..."
+            )
             self.output_text.append("")
             self.output_text.append("Postęp:")
         else:
@@ -684,6 +819,11 @@ class CrosswordGeneratorGUI(QMainWindow):
             color_text=(40, 40, 40),  # Domyślnie czarny tekst
             color_clue_num=color_clue_num,
             font_name=self.font_combo.currentText(),
+            progressive_mode=progressive_mode,
+            progressive_phases=progressive_phases,
+            max_total_variants=num_variants,
+            edge_first_mode=edge_first_mode,
+            edge_first_variants=edge_first_variants,
         )
         self.generator_thread.progress.connect(self.on_progress)
         self.generator_thread.finished.connect(self.on_finished)
@@ -703,6 +843,20 @@ class CrosswordGeneratorGUI(QMainWindow):
 
         if success:
             QMessageBox.information(self, "Sukces", message)
+
+            # Otwórz katalog z wynikami
+            if self.orchestrator.output_dir and os.path.exists(
+                self.orchestrator.output_dir
+            ):
+                try:
+                    if sys.platform == "win32":
+                        os.startfile(self.orchestrator.output_dir)
+                    elif sys.platform == "darwin":  # macOS
+                        os.system(f'open "{self.orchestrator.output_dir}"')
+                    else:  # Linux
+                        os.system(f'xdg-open "{self.orchestrator.output_dir}"')
+                except Exception as e:
+                    self.output_text.append(f"Nie można otworzyć folderu: {str(e)}")
         else:
             QMessageBox.critical(self, "Błąd", message)
 

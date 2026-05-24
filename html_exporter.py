@@ -212,8 +212,6 @@ class HTMLExporter:
             for num, clue, word in v_clues:
                 html_parts.append(f'                    <div class="clue"><span class="clue-num">{num}.</span> {clue}</div>')
 
-            html_parts.append('                </div>')
-
             html_parts.append("""            </div>
         </div>
         
@@ -222,11 +220,13 @@ class HTMLExporter:
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 15px;">
 """)
 
-            # Zbierz i posortuj wyrazy
+            # Zbierz unikatowe wyrazy z placed_words
             all_words = set()
             for word, _, _, _, _ in grid.placed_words:
-                all_words.add(word.upper())
+                if word and len(word) > 0:
+                    all_words.add(word.upper())
 
+            # Wyświetl wyrazy alfabetycznie
             for word in sorted(all_words):
                 html_parts.append(
                     f'                <div style="padding: 8px; background-color: #f0f0f0; border-radius: 4px;">{word}</div>'

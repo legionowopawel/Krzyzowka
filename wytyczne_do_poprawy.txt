@@ -1,0 +1,220 @@
+================================================================================
+RAPORT DLA PROGRAMISTY: PLIKI WYMAGAJĄCE NAPRAWY
+Cel: Maksymalne zagęszczenie siatki krzyżówki
+================================================================================
+
+CZY TO ZNACZY W PRAKTYCE:
+- Siatka powinna być zwarta
+- Brak długich pustych fragmentów
+- Każde hasło ma sensowną liczbę skrzyżowań
+- Brak zbyt wielu pól "niepracujących"
+- Każde pole sprawdzane przez dwa kierunki (styl amerykański)
+- Symetria zachowana gdzie możliwa
+
+================================================================================
+KRYTYCZNE (Priority 1 - Bezpośrednie działania na gęstości)
+================================================================================
+
+1. crossword_strategies.py
+   ────────────────────────────────────────────────────────────────────────
+   Problem: Ustawienia agresywności backtrackingu mogą być nieoptymalne
+   
+   Szczegóły:
+   - backtrack_depth dla DENSE_MODE: 200 (powinno być większe?)
+   - check_limit: 50 komórek (czy wystarczająco agresywnie?)
+   - h_limit / v_limit: 15 słów (może być za mało dla zagęszczenia)
+   - aggressive_fill flag: trzeba przeanalizować efekt
+   
+   Cel: 
+   - Maksymalizować przeploty między hasłami
+   - Minimalizować puste pola
+   - Zwiększyć liczbę słów na siatce
+   
+   Co sprawdzić:
+   - Czy parametry backtrack_depth dla każdej strategii są optymalnie dobrane?
+   - Czy check_limit powinien być większy? (teraz 50)
+   - Czy h_limit/v_limit powinny być większe? (teraz 15)
+   - Czy aggressive_fill działa prawidłowo?
+
+
+2. crossword_grid.py
+   ────────────────────────────────────────────────────────────────────────
+   Problem: Boundary checks mogą być zbyt liberalne/konserwatywne
+   
+   Szczegóły:
+   - can_place_word() waliduje graniczne pola (linie 97-108)
+   - Mogą nie wykrywać wszystkich konfliktów (DDYPLOM case)
+   - Wpływa na jakość przecięć i gęstość siatki
+   - Perpendicular word validation (linie 157-168)
+   
+   Cel: 
+   - Zapewnić sensowną liczbę skrzyżowań każdego hasła
+   - Uniknąć złych przecięć
+   - Maksymalizować wykorzystanie pustych komórek
+   
+   Co sprawdzić:
+   - Czy can_place_word() prawidłowo sprawdza poprzedzające komórki?
+   - Czy sprawdza następujące komórki?
+   - Czy perpendicular validation złapie wszystkie błędy?
+   - Czy boundary checks nie odrzucają zbyt wielu potencjalnych słów?
+
+
+3. crossword_generator.py
+   ────────────────────────────────────────────────────────────────────────
+   Problem: max_depth backtrackingu = 20 (zbyt płytko?)
+   
+   Szczegóły:
+   - Głębia przeszukiwania może ograniczać ilość umieszczonych słów
+   - _proximity_score() sortuje puste komórki (ale czy optymalnie?)
+   - Brak agresywnego wymuszania przecięć w gęstych obszarach
+   - Stare podejście (może zostać zastąpione przez crossword_strategies.py)
+   
+   Cel: 
+   - Zmaksymalizować przecięcia
+   - Zmniejszyć fragmentację siatki
+   - Zwiększyć liczbę słów
+   
+   Co sprawdzić:
+   - Czy max_depth=20 jest wystarczający?
+   - Czy _proximity_score() prawidłowo priorytetyzuje gęste obszary?
+   - Czy wspiera się na crossword_strategies (nowszy generator)?
+
+================================================================================
+WAŻNE (Priority 2 - Optymalizacja parametrów)
+================================================================================
+
+4. crossword_proper.py
+   ────────────────────────────────────────────────────────────────────────
+   Problem: Stary generator, max_depth=10 (bardzo mało)
+   
+   Szczegóły:
+   - Alternuje PIONOWO/POZIOMO co dwa poziomy
+   - Może być nieefektywne dla gęstości
+   - Czy aktualnie używany?
+   
+   Cel: 
+   - Ewentualnie usunąć lub zaktualizować parametry
+   
+   Co sprawdzić:
+   - Czy ten generator jest używany w flow?
+   - Czy powinno się go usunąć na rzecz crossword_strategies.py?
+
+
+5. crossword_orchestrator.py
+   ────────────────────────────────────────────────────────────────────────
+   Problem: Brak logiki optymalizacyjnej dla gęstości
+   
+   Szczegóły:
+   - Wybiera "best grid" ale nie priorytetyzuje gęstości
+   - load_planned_words() nie uwzględnia gęstości
+   - Może nie sortować wyników po gęstości jako pierwszy kryteria
+   
+   Cel: 
+   - Powiązać wybór grida z metrykami zagęszczenia
+   - Priorytetyzować gęstość nad innymi kryteriami
+   
+   Co sprawdzić:
+   - Czy wyniki są sortowane po density: sort_by_density ?
+   - Czy planned_words nie powoduje obniżenia gęstości?
+   - Czy orchestrator zwraca najgęstszą siatkę?
+
+================================================================================
+DIAGNOSTYCZNE (Priority 3 - Analiza i testy)
+================================================================================
+
+6. test_boundaries_detailed.py
+   ────────────────────────────────────────────────────────────────────────
+   Problem: Nie sprawdza kompletnie boundary conditions dla złożonych scenariuszy
+   
+   Szczegóły:
+   - Może nie złapać DDYPLOM, OPIEKAA, PPORZĄDEK
+   - Testy mogą być zbyt proste
+   
+   Cel: 
+   - Rozszerzyć testy dla wszystkich edge cases
+   - Weryfikować gęstość w testach
+   
+   Co sprawdzić:
+   - Czy testy pokrywają wszystkie edge case'y?
+   - Czy weryfikują gęstość siatki?
+
+
+7. diagnose_malformed.py
+   ────────────────────────────────────────────────────────────────────────
+   Problem: Niezakończona diagnostyka
+   
+   Szczegóły:
+   - Nie weryfikuje wszystkich problemów z zagęszczeniem
+   
+   Cel: 
+   - Pełna analiza gęstości vs. jakości słów
+   
+   Co sprawdzić:
+   - Czy diagnostyka obejmuje wszystkie metryki zagęszczenia?
+
+================================================================================
+DOKUMENTACYJNE (Priority 4 - Do weryfikacji)
+================================================================================
+
+8. IMPROVEMENTS_DENSITY.md - ✓ OK
+   - Zawiera już analizę: 50-52% gęstość
+   - Ale może być jeszcze lepsza (cel: 70-80%+)
+
+9. STATUS_UPDATE_2026-05-26.md - ✓ OK
+   - Zaznacza: Priority 3 = "Optymalizacja do 100% pokrycia słów zaplanowanych"
+
+10. COMPREHENSIVE_FIX_REPORT.md - ✓ OK
+    - TODO list zawiera P2 i P3 dla gęstości
+
+================================================================================
+METRYKI ZAGĘSZCZENIA: AKTUALNE vs. CEL
+================================================================================
+
+Parametr                      | Aktualne  | Cel       | Plik
+──────────────────────────────────────────────────────────────────────────
+Gęstość siatki                | 50-52%    | 70-80%+   | crossword_strategies.py
+Backtrack depth (DENSE_MODE)  | 200       | 250-300?  | crossword_strategies.py
+Backtrack depth (standard)    | 120       | 150-200?  | crossword_strategies.py
+Check limit na iterację       | 50        | 100?      | crossword_strategies.py
+Word candidates per cell      | 15        | 20-30?    | crossword_strategies.py
+Puste pola                    | 48-50%    | <30%      | crossword_grid.py
+Pola "niepracujące"           | ~10%      | <5%       | image_renderer.py
+Max depth backtrack standard  | 20        | 50-100?   | crossword_generator.py
+Max depth backtrack DENSE     | 10        | 30-50?    | crossword_proper.py
+
+================================================================================
+PLIKI JUŻ NAPRAWIONE (nie wymagają zmian)
+================================================================================
+
+✓ crossword_orchestrator.py - Planned words system OK
+✓ crossword_strategies.py (moduł planned_words) - OK
+✓ image_renderer.py - Renderowanie OK
+✓ html_exporter.py - Export OK
+✓ main.py - GUI i CLI OK
+
+================================================================================
+PODSUMOWANIE
+================================================================================
+
+GŁÓWNE PROBLEMY DO ROZWIĄZANIA:
+1. Gęstość siatki za niska (50-52% vs. cel 70-80%+)
+2. Za wiele pól "niepracujących"
+3. Za mało przeplotu między hasłami
+4. Parametry backtrackingu mogą być nieoptymalne
+5. Boundary checks mogą być zbyt konserwatywne
+
+KOLEJNOŚĆ DZIAŁAŃ:
+1. Zwiększyć parametry agresywności w crossword_strategies.py
+2. Przeanalizować can_place_word() w crossword_grid.py
+3. Optymalizować max_depth w crossword_generator.py
+4. Weryfikować w testach (test_boundaries_detailed.py)
+5. Mierzyć wyniki i iterować
+
+OCZEKIWANE REZULTATY PO NAPRAWACH:
+- Gęstość: 70-80%+ (vs. 50-52% teraz)
+- Słowa na siatce: 25-35 (vs. 20-23 teraz)
+- Pola "niepracujące": <5% (vs. ~10% teraz)
+- Przeplot: wysoki (każde słowo ma 2+ przecięcia)
+- Czas generacji: akceptowalny (<5 minut dla 15x15)
+
+================================================================================

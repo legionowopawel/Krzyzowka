@@ -1,4 +1,89 @@
-PRACA Zarobkowe zajęcie, cel uczestników CIS
+MAŁGORZATA To przez nią przelewy na kontach pracowników zawsze wydają się za małe.
+DOROTA Nie zapukasz do jej gabinetu bo drzwi są nieustannie otwarte.
+MARIUSZ Biurowy dusigrosz, który każdą zupę zamawia solidarnie na pół z Gosią., Składa oficjalne wnioski do sekretarki o spinacze z parametrami godnymi technologii NASA., Jedyna osoba, która sprawdza gramaturę serwetki przed jej użyciem.
+SYLWIA Kierowniczka biurowego warsztatu, która już od samego rana nie może się doczekać obserwacji zbierania zamówień na obiad.
+PIOTR Nadworny mistrz Canvy, który produkuje dyplomy dla Pawła za nieznane nikomu zasługi.
+MARTYNA Biurowy omnibus, dla którego organizacja piątkowej imprezy choćby w kasynie to błachostka. Biurowa powierniczka tajemnic, z którą Kasia najchętniej wymienia codzienne nowinki., Żywa encyklopedia biurowych wydarzeń – aktualizowana w czasie rzeczywistym.
+KASIA Niezwykle sympatyczna praktykantka, która tajniki firmy zgłębia podczas uroczych pogaduszek z Martyną.
+AGNIESZKA Dobry duch biura, który w każdy piątek dba o to, aby weekend powitać w idealnym porządku i czystości.
+PAWEŁ Kolega z biura, który na swoim biurku dumnie eksponuje canvowy dyplom za boskie zasługi, choć nikt nie wie, o jakie chodzi.
+KSIĘGOWA Stanowisko w firmie, na którym najczęściej słychać soczyste 'faktura jej mać!'., Strażniczka budżetu – i ekspresyjna artystka słowa mówionego.
+DYREKTOR Szefowa bez legendarnego 'dywanika', za to z wiecznie otwartymi drzwiami do gabinetu., Lider z polityką otwartych drzwi i otwartego serca na nowe pomysły.
+SEKRETARKA Gdyby wiedza była walutą, dawno kupiłaby firmę.
+PRAKTYKANTKA Młoda krew w zespole, która wnosi mnóstwo uśmiechu, świeżej energii i chętnie ucina miłe pogawędki z Martyną.
+UCZESTNIK Osoba biorąca udział w zajęciach lub projektach, dla której ulubionym momentem dnia jest wybicie godziny piętnastej., Specjalista od zebrań, na które nikt go nie zaprasza – co traktuje jako benefit.
+INFORMATYK Człowiek-zagadka, którego najczęstszą radą na wszelkie problemy z systemem jest: 'A próbowałeś wyłączyć i włączyć?'.
+KIEROWNIK Tytuł Sylwii, która z żelazną dyscypliną dowodzi całym biurowym warsztatem, zwłaszcza podczas obiadów.
+FAKTURA Absolutnie najczęściej słyszane i powtarzane słowo w całej firmie, przyprawiające czasem o ból głowy., Biurowy talizman – pojawia się wszędzie, nawet w snach.
+PODPIS Niezbędny zygzak na każdym dokumencie, bez którego żadne biurowe pismo nie ma mocy prawnej.
+PIECZĄTKA Biurowy 'stempel', którym namiętnie uderza się w dokumenty, zostawiając ślad tuszu.
+WYPŁATA Najbardziej wyczekiwany przelew w miesiącu, choć według niektórych – zawsze mógłby być nieco wyższy., Mityczna kwota na koncie – zawsze za niska i zawsze za rzadko.
+ZEBRANIE Oficjalne spotkanie firmowe, które uczestnicy uwielbiają tylko dlatego, że nikt ich na nie nie zaprasza.
+CANVA Magiczny program internetowy do robienia grafik, w którym hurtowo powstają dyplomy dla Pawła.
+KATALOG Gruba, firmowa broszura z ofertą, którą co chwilę trzeba wertować lub komuś wysyłać.
+KRZESŁO Podstawowy mebel biurowy, na którym spędza się długie godziny podczas pracy i obrad nad menu.
+ROŚLINY Zielone ozdoby w doniczkach, o których nikt nic nie wie, a zwłaszcza tego, kto je właściwie podlewa.
+DŁUGOPIS Przedmiot codziennego użytku, który ma magiczną tendencję do wypisywania się w najmniej odpowiednim momencie.
+PREMIA Legendarny, dodatkowy zastrzyk gotówki, na który wszyscy po cichu liczą.
+TELEFON Biurowe urządzenie stacjonarne, które dzwoni zazwyczaj wtedy, gdy masz pełne usta zupy.
+SŁUCHAWKA Element aparatu telefonicznego, który trzeba podnieść, by dowiedzieć się, kto pyta o fakturę albo katalog.
+SZAFKA Mebelek z drzwiczkami, w którym chomikuje się zapasowe długopisy, herbatę i dokumenty czekające na podpis.
+SEGREGATOR Plastikowy lub tekturowy skoroszyt na dokumenty, który pęka w szwach od nadmiaru faktur.
+KLUCZE Pęk metalowych przedmiotów, który wiecznie ginie na dnie torby, a jest niezbędny, by otworzyć biuro.
+KSERO Magiczna maszyna biurowa, która rozmnaja każdą fakturę, ale ma dar zacinania papieru w złym momencie.
+KUBEK Najważniejsze naczynie na biurku, w którym stygnie zapomniana herbata podczas ożywionej dyskusji.
+SPINACZE Metalowe akcesoria, o których odpowiednią zgiętość Mariusz opisuje we wnioskach z parametrami NASA.
+DZIURKACZ Biurowe narzędzie tortur dla papieru, które produkuje setki malutkich kółeczek.
+KOPERTA Papierowe opakowanie na katalogi lub faktury, które trzeba polizać zanim trafi do wysyłki.
+NOTATNIK Zbiór czystych kartek, w którym zapisuje się złote myśli z zebrań albo listę dań na obiad.
+NOŻYCZKI Ostre narzędzie biurowe, które wiecznie 'pożycza' ktoś z sąsiedniego biurka i nigdy nie oddaje.
+MARKER Gruby pisak, najczęściej jaskrawy, którym zakreśla się najważniejsze kwoty na fakturach.
+KLAWIATURA Urządzenie do stukania, na którym najczęściej używanymi literami są te składające się na słowo 'FAKTURA'., Instrument perkusyjny, na którym każdy pracownik gra własną, nerwową melodię.
+HASŁO Ciąg tajnych znaków do komputera, który po urlopie wylatuje z głowy jako pierwszy.
+MEJL Elektroniczna wiadomość, która często zaczyna się od 'W nawiązaniu do rozmowy...' i kończy ponagleniem., Skrzynka pełna poleceń służbowych napisanych przez kogoś, kto mógł po prostu podejść.
+MONITOR Okno na świat każdego pracownika, w które patrzy się z maślanym wzrokiem, czekając na koniec pracy.
+MYSZKA Jedyne 'gryzonie' akceptowane w biurze, które klika bez opamiętania od rana do godziny piętnastej.
+BIURKO Drewniany blat roboczy, na którym panuje artystyczny nieład złożony z pieczątek, kubków i spinaczy.
+ZEGAR Ścienny poganiacz czasu, na który uczestnicy gapią się intensywnie od godziny 14:55.
+PAPIER Białe arkusze, bez których ksero nie ma racji bytu, a księgowość nie miałaby na czym drukować faktur.
+KARTKA Czysty arkusz papieru, który najczęściej ląduje w drukarce albo służy do zapisania zamówień na obiad.
+URLOP Siedem dni szczęścia, po których skrzynka mailowa wygląda jak po apokalipsie.
+PUNKTUALNOŚĆ Cecha kogoś, kto codziennie zjawia się w pracy z zegarmistrzowską precyzją, czyli dokładnie o 9:05 albo wcale.
+KLIMATYZACJA Kość niezgody w każdym biurze – dla jednych arktyczny chłód, dla drugich saharyjski upał., Urządzenie, które jednocześnie przeziębia i przegrzewa – zależy od biurka.
+PONIEDZIAŁEK Dzień w tygodniu, w którym poziom motywacji drastycznie spada, a licznik wypitych kaw bije rekordy.
+PIĄTEK Dzień tygodnia, w którym Agnieszka sprząta biuro, a Martyna planuje integrację w kasynie., Dzień, w którym wszyscy pracują najciężej – nad planami na weekend.
+KORYTARZ Biurowa autostrada, na której najłatwiej spotkać Kasię i Marlenę na szybkich, strategicznych ploteczkach.
+OKNO Element ściany, przez który wygląda się w poszukiwaniu kuriera z katalogami albo dostawcy z Rabarbaru.
+OBIAD Główny punkt kulminacyjny dnia, wokół którego kręci się najwięcej biurowych emocji i dyskusji.
+ZUPA Płynne danie obiadowe, idealne do zamówienia w systemie 'pół na pół' z Gosią.
+SAŁATKA Lekka, warzywna alternatywa dla ciężkiego obiadku, zamawiana w ramach biurowego menu.
+SURÓWKA Chrupiący dodatek do drugiego dania, który czasem ląduje w lunchboxie.
+HERBATA Gorący napar w kubku, nieodzowny towarzysz biurowych ploteczek i zimowych poranków.
+KAWA Najważniejsze paliwo w biurze, bez którego żaden komputer (i pracownik) rano nie ruszy., Substancja, która zamienia zombie w pracownika – skuteczność: 87%.
+CUKIER Słodki biały kryształ, który znika z biurowej kuchni w tym samym tempie, co małe łyżeczki.
+WIDELEC Niezbędne biurowe narzędzie stołowe, bez którego zjedzenie sałatki z Rabarbaru byłoby nie lada wyczynem.
+ŁYŻECZKA Mały, ale kluczowy sztuciec, który wiecznie znika z biurowej kuchni, niezbędny do zamieszania cukru w herbacie.
+ZIEMNIAK Podstawowe polskie warzywo, które w menu z Rabarbaru pojawia się jako purée, frytki lub wkładka do zupy.
+CATERING Wygodny dowóz jedzenia, bez którego biurowy warsztat przymierałby głodem w oczekiwaniu na menu.
+LODÓWKA Biurowe centrum dowodzenia chłodem, gdzie każdy pilnuje swojej sałatki przed zakusami innych.
+CZAJNIK Urządzenie kuchenne, które szumi i bulgocze bez przerwy, przygotowując wrzątek na litry herbaty.
+RABARBAR Oficjalna nazwa ulubionego baru, z którego codziennie ściąga się jedzenie do biura.
+CIS Zimozielona, długowieczna roślina iglasta o czerwonych nibyjagodach, która z biurowym ciszeniem nie ma nic wspólnego.
+DESKA Element wyposażenia toalety, który według zasad savoir-vivre'u trzeba bezwzględnie opuścić przed spuszczeniem wody.
+ŁOPATA Tradycyjne narzędzie do machania w ziemi, którego na szczęście w biurowym warsztacie nie trzeba używać.
+SZPADEL Krewniak łopaty o zaostrzonej blasze; idealny, gdy trzeba wkopać się głębiej w jakiś trudny temat.
+KOSIARKA Hałaśliwa machina ogrodowa, która w biurze mogłaby służyć do drastycznego skracania zbyt długich zebrań.
+GRABIE Narzędzie ogrodowe z ząbkami do robienia porządków na trawniku, by kosiarka miała łatwiej.
+WIADRO Plastikowy lub metalowy pojemnik, niezbędny Agnieszce do piątkowych porządków.
+MOP Biurowy przyjaciel czystości, który w piątki tańczy po podłogach pod dyktando Agnieszki.
+GWÓŹDŹ Mały metalowy element, który Piotr mógłby wbić w ścianę, żeby Paweł miał gdzie powiesić swój dyplom z Canvy.
+ŚRUBOKRĘT Podstawowe narzędzie w biurowym warsztacie, potrzebne gdy krzesło pod kimś zaczyna podejrzanie trzeszczeć.
+ŻARÓWKA Szklana bańka pod sufitem, która musi jasno świecić, żeby Małgorzata widziała cyferki w małych przelewach.
+ZAMEK Mechanizm w drzwiach gabinetu Doroty, który rdzewieje z nudów, bo jej drzwi są zawsze otwarte., Najsłabszy element drzwi Doroty – kompletnie bezrobotny.
+KOSZULKA Przezroczysta folia ochronna na dokumenty, w której każda faktura czuje się bezpiecznie i elegancko.
+TAŚMA Przezroczysta i klejąca, ratuje pęknięte segregatory i skleja koperty, które nie chcą się trzymać.
+GUMKA Elastyczna recepturka, która spina w całość rulony dokumentów albo uciekające długopisy na biurku.
+PRACA Zarobkowe zajęcie
 ZAWÓD Wyuczona profesja, np. kucharz lub ogrodnik
 ETAT Stałe zatrudnienie w pełnym wymiarze godzin
 KURS Szkolenie podnoszące nasze kwalifikacje

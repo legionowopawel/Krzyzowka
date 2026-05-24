@@ -162,16 +162,15 @@ class CrosswordImageRenderer:
                         anchor="mm",
                     )
 
-                # Rysuj WSZYSTKIE numery pytań dla tej komórki (nie tylko na startach)
-                # Zbierz wszystkie numery które mają Start w tej komórce
-                nums_at_this_cell = []
-                for num, (nr, nc) in clue_num_positions.items():
-                    if nr == r and nc == c:
-                        nums_at_this_cell.append(num)
+                # Zbierz wszystkie numery które mają start w tej komórce
+                nums_at_this_cell = [
+                    num
+                    for num, (nr, nc) in clue_num_positions.items()
+                    if nr == r and nc == c
+                ]
 
-                # Jeśli jest numer pytania, rysuj go w lewym górnym rogu
+                # Jeśli jest numer pytania i komórka nie jest czarna, rysuj go
                 if nums_at_this_cell and cell is not None:
-                    # Rysuj pierwszy numer (głównie dla tej komórki)
                     num_text = str(min(nums_at_this_cell))
                     draw.text(
                         (x0 + 4, y0 + 2),
@@ -188,6 +187,14 @@ class CrosswordImageRenderer:
         """
         Zbierz WSZYSTKIE pozycje gdzie zaczynają się wyrazy (dla poziomych i pionowych).
 
+        Komórka jest startem wyrazu poziomego gdy:
+          - poprzednia komórka to None lub jest poza siatką (lewa krawędź)
+          - następna komórka istnieje i nie jest czarna (None)
+
+        Komórka jest startem wyrazu pionowego gdy:
+          - górna komórka to None lub jest poza siatką (górna krawędź)
+          - dolna komórka istnieje i nie jest czarna (None)
+
         Returns:
             Lista (num_pytania, row, col)
         """
@@ -197,24 +204,30 @@ class CrosswordImageRenderer:
         for r in range(grid.height):
             for c in range(grid.width):
                 cell = grid.grid[r][c]
-                if cell is None or cell == "":
+
+                # Pomijamy czarne komórki (None) — nie mogą być startami wyrazów
+                if cell is None:
                     continue
 
-                # Sprawdź czy to start słowa poziomego
-                if (c == 0 or grid.grid[r][c - 1] is None) and (
-                    c < grid.width - 1 and grid.grid[r][c + 1] not in (None, "")
-                ):
-                    # To start słowa poziomego
-                    clue_num = grid.get_clue_number(r, c)
-                    if clue_num and clue_num not in collected_nums:
-                        positions.append((clue_num, r, c))
-                        collected_nums.add(clue_num)
+                # Sprawdź czy to start słowa poziomego:
+                # - lewa strona to krawędź siatki lub czarna komórka
+                # - prawa strona istnieje i nie jest czarna
+                is_h_start = (
+                    (c == 0 or grid.grid[r][c - 1] is None)
+                    and c < grid.width - 1
+                    and grid.grid[r][c + 1] is not None
+                )
 
-                # Sprawdź czy to start słowa pionowego
-                if (r == 0 or grid.grid[r - 1][c] is None) and (
-                    r < grid.height - 1 and grid.grid[r + 1][c] not in (None, "")
-                ):
-                    # To start słowa pionowego
+                # Sprawdź czy to start słowa pionowego:
+                # - górna strona to krawędź siatki lub czarna komórka
+                # - dolna strona istnieje i nie jest czarna
+                is_v_start = (
+                    (r == 0 or grid.grid[r - 1][c] is None)
+                    and r < grid.height - 1
+                    and grid.grid[r + 1][c] is not None
+                )
+
+                if is_h_start or is_v_start:
                     clue_num = grid.get_clue_number(r, c)
                     if clue_num and clue_num not in collected_nums:
                         positions.append((clue_num, r, c))
@@ -225,11 +238,11 @@ class CrosswordImageRenderer:
     def render_with_clues(self, grid: CrosswordGrid, filled: bool = True) -> Image.Image:
         """
         Renderuj krzyżówkę wraz z pytaniami poniżej.
-        
+
         Args:
             grid: Siatka krzyżówki
             filled: True = uzupełniona, False = pusta
-        
+
         Returns:
             Obraz zawierający siatkę krzyżówki i pytania
         """
@@ -252,9 +265,8 @@ class CrosswordImageRenderer:
         # Rysuj pytania
         draw = ImageDraw.Draw(final_img)
 
+        # --- Sekcja POZIOMO ---
         y = grid_img.height + 20
-
-        # Pytania poziome
         draw.text((20, y), "POZIOMO:", fill=self.color_text, font=self.font_main)
         y += 40
 
@@ -263,28 +275,15 @@ class CrosswordImageRenderer:
             draw.text((40, y), text, fill=self.color_text, font=self.font_clue)
             y += 25
 
-        # Pytania pionowe
-        y += 20
-        draw.text(
-            (
-                grid_img.width // 2 + 20,
-                grid_img.height + 40 + max(len(h_clues), 2) * 25,
-            ),
-            "PIONOWO:",
-            fill=self.color_text,
-            font=self.font_main,
-        )
-
-        y = grid_img.height + 40 + max(len(h_clues), 2) * 25 + 40
+        # --- Sekcja PIONOWO ---
+        v_x = grid_img.width // 2 + 20
+        v_y = grid_img.height + 20
+        draw.text((v_x, v_y), "PIONOWO:", fill=self.color_text, font=self.font_main)
+        v_y += 40
 
         for num, clue, word in v_clues[:20]:
             text = f"{num}. {clue}"
-            draw.text(
-                (grid_img.width // 2 + 40, y),
-                text,
-                fill=self.color_text,
-                font=self.font_clue,
-            )
-            y += 25
+            draw.text((v_x + 20, v_y), text, fill=self.color_text, font=self.font_clue)
+            v_y += 25
 
         return final_img
